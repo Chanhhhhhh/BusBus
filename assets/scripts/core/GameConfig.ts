@@ -93,6 +93,14 @@ export const GameConfig = {
     hud: {
         /** Height above a world anchor (sign, bus) where HUD widgets are placed. */
         anchorHeight: 1.2,
+        /**
+         * Where the counters sit on the sign boards, in the sign mesh's local space (the board
+         * face is x [-0.35, 0.35], y [0.32, 0.79], front at z 0.10). `scale` = mesh units per UI unit.
+         */
+        signCounter: {
+            offset: { x: 0, y: 0.555, z: 0.11 },
+            scale: 0.0058,
+        },
     },
 
     autoplay: {

@@ -95,7 +95,6 @@ export class GameManager extends Component implements BusTripListener {
 
     private readonly tmpWorld = new Vec3();
     private readonly tmpUi = new Vec3();
-    private readonly tmpUi2 = new Vec3();
 
     onLoad(): void {
         const search = typeof location !== 'undefined' ? location.search : '';
@@ -232,6 +231,7 @@ export class GameManager extends Component implements BusTripListener {
         this.gameplay = instantiate(this.gameplayViewPrefab).getComponent(GameplayView);
         this.gameplay.node.setParent(this.canvas, false);
         this.gameplay.setLevel(this.level.id);
+        if (this.signStop && this.signGate) this.gameplay.attachSignCounters(this.signStop, this.signGate);
 
         this.winView = instantiate(this.winViewPrefab).getComponent(WinView);
         this.winView.node.setParent(this.canvas, false);
@@ -467,12 +467,6 @@ export class GameManager extends Component implements BusTripListener {
         if (!this.gameplay) return;
         this.gameplay.setCapacity(this.busesOnRoad(), this.level.roadCapacity);
         this.gameplay.setCounters(this.busStop.remaining, this.busesLeft);
-
-        if (this.signStop && this.signGate) {
-            this.worldToHud(this.signStop.worldPosition, this.tmpUi);
-            this.worldToHud(this.signGate.worldPosition, this.tmpUi2);
-            this.gameplay.setAnchors(this.tmpUi, this.tmpUi2);
-        }
 
         if (this.state !== GameState.Playing) return;
         this.idleTimer += dt;

@@ -1,14 +1,18 @@
-import { _decorator, Button, Component, Label, Node, Tween, Vec3, tween } from 'cc';
+import { _decorator, Button, Component, Label, Layers, MeshRenderer, Node, RenderRoot2D, Tween, Vec3, tween } from 'cc';
 import { GameConfig } from '../core/GameConfig';
 
 const { ccclass, property } = _decorator;
 
 const ANIM = GameConfig.ui.anim;
 const TEXT = GameConfig.ui.text;
+const SIGN_COUNTER = GameConfig.hud.signCounter;
 
 /**
- * HUD shown while playing. The counters and the tap hint are positioned by GameManager
- * from world positions; everything else is static UI that can be re-skinned in the prefab.
+ * HUD shown while playing. The two counters are world-space widgets: at runtime they are moved
+ * off the canvas onto RenderRoot2D nodes parented to the sign meshes, so the numbers are printed
+ * on the sign boards and drawn by the main camera. The tap hint is still a canvas widget
+ * positioned by GameManager from world positions; everything else is static UI that can be
+ * re-skinned in the prefab.
  */
 @ccclass('GameplayView')
 export class GameplayView extends Component {
@@ -29,10 +33,54 @@ export class GameplayView extends Component {
     private lastPassengers = -1;
     private lastBuses = -1;
 
+    /** RenderRoot2D roots parented to the sign meshes (null until attached). */
+    private passengerRoot: Node | null = null;
+    private busRoot: Node | null = null;
+
     onLoad(): void {
         if (this.ctaButton) this.ctaButton.node.on(Button.EventType.CLICK, () => this.onCta && this.onCta(), this);
         if (this.toastLabel) this.toastLabel.node.active = false;
         this.showTapHint(false);
+    }
+
+    onDestroy(): void {
+        if (this.passengerRoot?.isValid) this.passengerRoot.destroy();
+        if (this.busRoot?.isValid) this.busRoot.destroy();
+        this.passengerRoot = this.busRoot = null;
+    }
+
+    /**
+     * Moves the counters out of the canvas onto the sign boards: each one is reparented under a
+     * RenderRoot2D node that is a child of the sign's mesh, placed on the board face
+     * (`GameConfig.hud.signCounter`, in mesh-local units). The counters then follow the sign's
+     * transform, so nothing has to be repositioned per frame. Layer DEFAULT so the main camera
+     * draws them.
+     */
+    attachSignCounters(stopSign: Node, gateSign: Node): void {
+        if (!this.passengerRoot) this.passengerRoot = GameplayView.mountOnSign('PassengerCounterRoot', stopSign, this.passengerCounter);
+        if (!this.busRoot) this.busRoot = GameplayView.mountOnSign('BusCounterRoot', gateSign, this.busCounter);
+    }
+
+    private static mountOnSign(name: string, sign: Node, widget: Node | null): Node {
+        const board = sign.getComponentInChildren(MeshRenderer)?.node ?? sign;
+        const root = new Node(name);
+        root.layer = Layers.Enum.DEFAULT;
+        root.addComponent(RenderRoot2D);
+        const o = SIGN_COUNTER.offset;
+        root.setPosition(o.x, o.y, o.z);
+        root.setScale(SIGN_COUNTER.scale, SIGN_COUNTER.scale, SIGN_COUNTER.scale);
+        root.setParent(board, false);
+        if (widget) {
+            widget.setParent(root, false);
+            widget.setPosition(0, 0, 0);
+            GameplayView.setLayerRecursive(widget, Layers.Enum.DEFAULT);
+        }
+        return root;
+    }
+
+    private static setLayerRecursive(node: Node, layer: number): void {
+        node.layer = layer;
+        for (const child of node.children) GameplayView.setLayerRecursive(child, layer);
     }
 
     setLevel(id: number): void {
@@ -54,12 +102,6 @@ export class GameplayView extends Component {
             if (this.lastBuses >= 0) this.bump(this.busCounter);
             this.lastBuses = buses;
         }
-    }
-
-    /** Moves the world-anchored widgets. Positions are in the local space of this node. */
-    setAnchors(passengerPos: Vec3, busPos: Vec3): void {
-        if (this.passengerCounter) this.passengerCounter.setPosition(passengerPos);
-        if (this.busCounter) this.busCounter.setPosition(busPos);
     }
 
     showTapHint(visible: boolean, pos?: Vec3): void {
