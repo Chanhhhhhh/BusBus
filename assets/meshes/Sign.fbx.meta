@@ -1,0 +1,143 @@
+{
+  "ver": "2.3.14",
+  "importer": "fbx",
+  "imported": true,
+  "uuid": "a2bc38fd-c0ef-4da2-a699-17ba66c27d59",
+  "files": [],
+  "subMetas": {
+    "a62fe": {
+      "importer": "gltf-mesh",
+      "uuid": "a2bc38fd-c0ef-4da2-a699-17ba66c27d59@a62fe",
+      "displayName": "",
+      "id": "a62fe",
+      "name": "Scene.mesh",
+      "userData": {
+        "gltfIndex": 0,
+        "triangleCount": 154
+      },
+      "ver": "1.1.1",
+      "imported": true,
+      "files": [
+        ".bin",
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "4f17a": {
+      "importer": "texture",
+      "uuid": "a2bc38fd-c0ef-4da2-a699-17ba66c27d59@4f17a",
+      "displayName": "",
+      "id": "4f17a",
+      "name": "DiffuseColor_Texture.texture",
+      "userData": {
+        "wrapModeS": "repeat",
+        "wrapModeT": "repeat",
+        "minfilter": "linear",
+        "magfilter": "linear",
+        "mipfilter": "none",
+        "anisotropy": 0,
+        "isUuid": false,
+        "imageUuidOrDatabaseUri": "db://assets/textures/FakeShadow.png"
+      },
+      "ver": "1.0.22",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "ae20d": {
+      "importer": "gltf-material",
+      "uuid": "a2bc38fd-c0ef-4da2-a699-17ba66c27d59@ae20d",
+      "displayName": "",
+      "id": "ae20d",
+      "name": "Assets.material",
+      "userData": {
+        "gltfIndex": 0
+      },
+      "ver": "1.0.14",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "1a9ee": {
+      "importer": "gltf-material",
+      "uuid": "a2bc38fd-c0ef-4da2-a699-17ba66c27d59@1a9ee",
+      "displayName": "",
+      "id": "1a9ee",
+      "name": "FakeShadow.material",
+      "userData": {
+        "gltfIndex": 1
+      },
+      "ver": "1.0.14",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "035e0": {
+      "importer": "gltf-scene",
+      "uuid": "a2bc38fd-c0ef-4da2-a699-17ba66c27d59@035e0",
+      "displayName": "",
+      "id": "035e0",
+      "name": "Sign.prefab",
+      "userData": {
+        "gltfIndex": 0
+      },
+      "ver": "1.0.14",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    }
+  },
+  "userData": {
+    "imageMetas": [
+      {
+        "name": "DiffuseColor_Texture",
+        "uri": "db://assets/textures/FakeShadow.png"
+      }
+    ],
+    "fbx": {
+      "smartMaterialEnabled": true
+    },
+    "lods": {
+      "enable": false,
+      "hasBuiltinLOD": false,
+      "options": [
+        {
+          "screenRatio": 0.25,
+          "faceCount": 1
+        },
+        {
+          "screenRatio": 0.125,
+          "faceCount": 0.25
+        },
+        {
+          "screenRatio": 0.01,
+          "faceCount": 0.1
+        }
+      ]
+    },
+    "assetFinder": {
+      "meshes": [
+        "a2bc38fd-c0ef-4da2-a699-17ba66c27d59@a62fe"
+      ],
+      "skeletons": [],
+      "textures": [
+        "a2bc38fd-c0ef-4da2-a699-17ba66c27d59@4f17a"
+      ],
+      "materials": [
+        "a2bc38fd-c0ef-4da2-a699-17ba66c27d59@ae20d",
+        "a2bc38fd-c0ef-4da2-a699-17ba66c27d59@1a9ee"
+      ],
+      "scenes": [
+        "a2bc38fd-c0ef-4da2-a699-17ba66c27d59@035e0"
+      ]
+    }
+  }
+}

@@ -1,0 +1,171 @@
+{
+  "ver": "2.3.14",
+  "importer": "fbx",
+  "imported": true,
+  "uuid": "830e8baa-6bc5-4916-9c85-f82189661528",
+  "files": [],
+  "subMetas": {
+    "a62fe": {
+      "importer": "gltf-mesh",
+      "uuid": "830e8baa-6bc5-4916-9c85-f82189661528@a62fe",
+      "displayName": "",
+      "id": "a62fe",
+      "name": "Scene.mesh",
+      "userData": {
+        "gltfIndex": 0,
+        "triangleCount": 269
+      },
+      "ver": "1.1.1",
+      "imported": true,
+      "files": [
+        ".bin",
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "4f17a": {
+      "importer": "texture",
+      "uuid": "830e8baa-6bc5-4916-9c85-f82189661528@4f17a",
+      "displayName": "",
+      "id": "4f17a",
+      "name": "DiffuseColor_Texture.texture",
+      "userData": {
+        "wrapModeS": "repeat",
+        "wrapModeT": "repeat",
+        "minfilter": "linear",
+        "magfilter": "linear",
+        "mipfilter": "none",
+        "anisotropy": 0,
+        "isUuid": false,
+        "imageUuidOrDatabaseUri": "db://assets/textures/Road_Mask.png"
+      },
+      "ver": "1.0.22",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "05a41": {
+      "importer": "texture",
+      "uuid": "830e8baa-6bc5-4916-9c85-f82189661528@05a41",
+      "displayName": "",
+      "id": "05a41",
+      "name": "DiffuseColor_Texture_1.texture",
+      "userData": {
+        "wrapModeS": "repeat",
+        "wrapModeT": "repeat",
+        "minfilter": "linear",
+        "magfilter": "linear",
+        "mipfilter": "none",
+        "anisotropy": 0,
+        "isUuid": false,
+        "imageUuidOrDatabaseUri": "db://assets/textures/FakeShadow.png"
+      },
+      "ver": "1.0.22",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "4e054": {
+      "importer": "gltf-material",
+      "uuid": "830e8baa-6bc5-4916-9c85-f82189661528@4e054",
+      "displayName": "",
+      "id": "4e054",
+      "name": "Road.material",
+      "userData": {
+        "gltfIndex": 0
+      },
+      "ver": "1.0.14",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "1a9ee": {
+      "importer": "gltf-material",
+      "uuid": "830e8baa-6bc5-4916-9c85-f82189661528@1a9ee",
+      "displayName": "",
+      "id": "1a9ee",
+      "name": "FakeShadow.material",
+      "userData": {
+        "gltfIndex": 1
+      },
+      "ver": "1.0.14",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "7621e": {
+      "importer": "gltf-scene",
+      "uuid": "830e8baa-6bc5-4916-9c85-f82189661528@7621e",
+      "displayName": "",
+      "id": "7621e",
+      "name": "Ground.prefab",
+      "userData": {
+        "gltfIndex": 0
+      },
+      "ver": "1.0.14",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    }
+  },
+  "userData": {
+    "imageMetas": [
+      {
+        "name": "DiffuseColor_Texture",
+        "uri": "db://assets/textures/Road_Mask.png"
+      },
+      {
+        "name": "DiffuseColor_Texture_1",
+        "uri": "db://assets/textures/FakeShadow.png"
+      }
+    ],
+    "fbx": {
+      "smartMaterialEnabled": true
+    },
+    "lods": {
+      "enable": false,
+      "hasBuiltinLOD": false,
+      "options": [
+        {
+          "screenRatio": 0.25,
+          "faceCount": 1
+        },
+        {
+          "screenRatio": 0.125,
+          "faceCount": 0.25
+        },
+        {
+          "screenRatio": 0.01,
+          "faceCount": 0.1
+        }
+      ]
+    },
+    "assetFinder": {
+      "meshes": [
+        "830e8baa-6bc5-4916-9c85-f82189661528@a62fe"
+      ],
+      "skeletons": [],
+      "textures": [
+        "830e8baa-6bc5-4916-9c85-f82189661528@4f17a",
+        "830e8baa-6bc5-4916-9c85-f82189661528@05a41"
+      ],
+      "materials": [
+        "830e8baa-6bc5-4916-9c85-f82189661528@4e054",
+        "830e8baa-6bc5-4916-9c85-f82189661528@1a9ee"
+      ],
+      "scenes": [
+        "830e8baa-6bc5-4916-9c85-f82189661528@7621e"
+      ]
+    }
+  }
+}

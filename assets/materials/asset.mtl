@@ -1,0 +1,77 @@
+{
+  "__type__": "cc.Material",
+  "_name": "",
+  "_objFlags": 0,
+  "__editorExtras__": {},
+  "_native": "",
+  "_effectAsset": {
+    "__uuid__": "8d5ee353-c9ad-4613-9f1a-6a8c024410df",
+    "__expectedType__": "cc.EffectAsset"
+  },
+  "_techIdx": 0,
+  "_defines": [
+    {},
+    {},
+    {},
+    {}
+  ],
+  "_states": [
+    {
+      "rasterizerState": {},
+      "depthStencilState": {},
+      "blendState": {
+        "targets": [
+          {}
+        ]
+      }
+    },
+    {
+      "rasterizerState": {},
+      "depthStencilState": {},
+      "blendState": {
+        "targets": [
+          {}
+        ]
+      }
+    },
+    {
+      "rasterizerState": {},
+      "depthStencilState": {},
+      "blendState": {
+        "targets": [
+          {}
+        ]
+      }
+    },
+    {
+      "rasterizerState": {},
+      "depthStencilState": {},
+      "blendState": {
+        "targets": [
+          {}
+        ]
+      }
+    }
+  ],
+  "_props": [
+    {
+      "mainTexture": {
+        "__uuid__": "27d6727e-1490-41dc-9c23-fb0f098dad6c@6c48a",
+        "__expectedType__": "cc.Texture2D"
+      },
+      "smoothness": 1.11
+    },
+    {},
+    {},
+    {
+      "lineWidth": 22.2,
+      "baseColor": {
+        "__type__": "cc.Color",
+        "r": 112,
+        "g": 0,
+        "b": 0,
+        "a": 255
+      }
+    }
+  ]
+}

@@ -1,0 +1,219 @@
+{
+  "ver": "2.3.14",
+  "importer": "fbx",
+  "imported": true,
+  "uuid": "259f1dba-0cd3-4d59-88dd-ef339ade9fa3",
+  "files": [],
+  "subMetas": {
+    "99d6c": {
+      "importer": "gltf-mesh",
+      "uuid": "259f1dba-0cd3-4d59-88dd-ef339ade9fa3@99d6c",
+      "displayName": "",
+      "id": "99d6c",
+      "name": "Scene-0.mesh",
+      "userData": {
+        "gltfIndex": 0,
+        "triangleCount": 1434
+      },
+      "ver": "1.1.1",
+      "imported": true,
+      "files": [
+        ".bin",
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "6ec10": {
+      "importer": "gltf-mesh",
+      "uuid": "259f1dba-0cd3-4d59-88dd-ef339ade9fa3@6ec10",
+      "displayName": "",
+      "id": "6ec10",
+      "name": "Scene-1.mesh",
+      "userData": {
+        "gltfIndex": 1,
+        "triangleCount": 96
+      },
+      "ver": "1.1.1",
+      "imported": true,
+      "files": [
+        ".bin",
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "3620d": {
+      "importer": "gltf-mesh",
+      "uuid": "259f1dba-0cd3-4d59-88dd-ef339ade9fa3@3620d",
+      "displayName": "",
+      "id": "3620d",
+      "name": "Scene-2.mesh",
+      "userData": {
+        "gltfIndex": 2,
+        "triangleCount": 152
+      },
+      "ver": "1.1.1",
+      "imported": true,
+      "files": [
+        ".bin",
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "cbffa": {
+      "importer": "gltf-mesh",
+      "uuid": "259f1dba-0cd3-4d59-88dd-ef339ade9fa3@cbffa",
+      "displayName": "",
+      "id": "cbffa",
+      "name": "Scene-3.mesh",
+      "userData": {
+        "gltfIndex": 3,
+        "triangleCount": 152
+      },
+      "ver": "1.1.1",
+      "imported": true,
+      "files": [
+        ".bin",
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "3c0d1": {
+      "importer": "gltf-mesh",
+      "uuid": "259f1dba-0cd3-4d59-88dd-ef339ade9fa3@3c0d1",
+      "displayName": "",
+      "id": "3c0d1",
+      "name": "Scene-4.mesh",
+      "userData": {
+        "gltfIndex": 4,
+        "triangleCount": 2
+      },
+      "ver": "1.1.1",
+      "imported": true,
+      "files": [
+        ".bin",
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "4f17a": {
+      "importer": "texture",
+      "uuid": "259f1dba-0cd3-4d59-88dd-ef339ade9fa3@4f17a",
+      "displayName": "",
+      "id": "4f17a",
+      "name": "DiffuseColor_Texture.texture",
+      "userData": {
+        "wrapModeS": "repeat",
+        "wrapModeT": "repeat",
+        "minfilter": "linear",
+        "magfilter": "linear",
+        "mipfilter": "none",
+        "anisotropy": 0,
+        "isUuid": false,
+        "imageUuidOrDatabaseUri": "db://assets/textures/FakeShadow.png"
+      },
+      "ver": "1.0.22",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "b7e91": {
+      "importer": "gltf-material",
+      "uuid": "259f1dba-0cd3-4d59-88dd-ef339ade9fa3@b7e91",
+      "displayName": "",
+      "id": "b7e91",
+      "name": "Vehicle_Red.material",
+      "userData": {
+        "gltfIndex": 0
+      },
+      "ver": "1.0.14",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "1a9ee": {
+      "importer": "gltf-material",
+      "uuid": "259f1dba-0cd3-4d59-88dd-ef339ade9fa3@1a9ee",
+      "displayName": "",
+      "id": "1a9ee",
+      "name": "FakeShadow.material",
+      "userData": {
+        "gltfIndex": 1
+      },
+      "ver": "1.0.14",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "c4280": {
+      "importer": "gltf-scene",
+      "uuid": "259f1dba-0cd3-4d59-88dd-ef339ade9fa3@c4280",
+      "displayName": "",
+      "id": "c4280",
+      "name": "Vehicle_10.prefab",
+      "userData": {
+        "gltfIndex": 0
+      },
+      "ver": "1.0.14",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    }
+  },
+  "userData": {
+    "imageMetas": [
+      {
+        "name": "DiffuseColor_Texture",
+        "uri": "db://assets/textures/FakeShadow.png"
+      }
+    ],
+    "fbx": {
+      "smartMaterialEnabled": true
+    },
+    "lods": {
+      "enable": false,
+      "hasBuiltinLOD": false,
+      "options": [
+        {
+          "screenRatio": 0.25,
+          "faceCount": 1
+        },
+        {
+          "screenRatio": 0.125,
+          "faceCount": 0.25
+        },
+        {
+          "screenRatio": 0.01,
+          "faceCount": 0.1
+        }
+      ]
+    },
+    "assetFinder": {
+      "meshes": [
+        "259f1dba-0cd3-4d59-88dd-ef339ade9fa3@99d6c",
+        "259f1dba-0cd3-4d59-88dd-ef339ade9fa3@6ec10",
+        "259f1dba-0cd3-4d59-88dd-ef339ade9fa3@3620d",
+        "259f1dba-0cd3-4d59-88dd-ef339ade9fa3@cbffa",
+        "259f1dba-0cd3-4d59-88dd-ef339ade9fa3@3c0d1"
+      ],
+      "skeletons": [],
+      "textures": [
+        "259f1dba-0cd3-4d59-88dd-ef339ade9fa3@4f17a"
+      ],
+      "materials": [
+        "259f1dba-0cd3-4d59-88dd-ef339ade9fa3@b7e91",
+        "259f1dba-0cd3-4d59-88dd-ef339ade9fa3@1a9ee"
+      ],
+      "scenes": [
+        "259f1dba-0cd3-4d59-88dd-ef339ade9fa3@c4280"
+      ]
+    }
+  }
+}

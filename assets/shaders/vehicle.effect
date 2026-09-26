@@ -1,0 +1,248 @@
+// Copyright (c) 2017-2020 Xiamen Yaji Software Co., Ltd.
+CCEffect %{
+  techniques:
+  - name: opaque
+    passes:
+    - vert: vehicle-vs:vert
+      frag: vehicle-fs:frag
+      properties: &props
+        mainTexture:    { value: grey }
+        tilingOffset:   { value: [1, 1, 0, 0] }
+        mainColor:      { value: [1, 1, 1, 1], linear: true, editor: { type: color } }
+        colorScale:     { value: [1, 1, 1], target: colorScaleAndCutoff.xyz }
+        smoothness:     { value: 0.5, target: lightingParams.x }
+        color:          { target: mainColor, linear: true, editor: { visible: false } }
+      migrations: &migs
+        properties:
+          mainColor:    { formerlySerializedAs: color }
+    - &planar-shadow
+      vert: planar-shadow-vs:vert
+      frag: planar-shadow-fs:frag
+      phase: planar-shadow
+      propertyIndex: 0
+      depthStencilState:
+        depthTest: true
+        depthWrite: false
+        stencilTestFront: true
+        stencilFuncFront: not_equal
+        stencilPassOpFront: replace
+        stencilRef: 0x80
+        stencilReadMask: 0x80
+        stencilWriteMask: 0x80
+      blendState:
+        targets:
+        - blend: true
+          blendSrc: src_alpha
+          blendDst: one_minus_src_alpha
+          blendDstAlpha: one_minus_src_alpha
+    - &deferred-forward
+      vert: vehicle-vs:vert
+      frag: vehicle-fs:frag
+      phase: deferred-forward
+      propertyIndex: 0
+    - switch: USE_OUTLINE_PASS
+      vert: silhouette-edge-vs
+      frag: silhouette-edge-fs
+      rasterizerState:
+        cullMode: front
+      depthStencilState:
+        depthFunc: less_equal
+        depthTest: true
+        depthWrite: true
+      properties:
+        lineWidth:    { value: 10, target: outlineParams.x }
+        depthBias:    { value: 0,  target: outlineParams.y }
+        baseColor:    { editor: { type: color } }
+        baseColorMap: { value: grey }
+}%
+
+CCProgram vehicle-vs %{
+  precision highp float;
+  #include <legacy/input-standard>
+  #include <builtin/uniforms/cc-global>
+  #include <legacy/decode-base>
+  #include <legacy/local-batch>
+  #include <legacy/fog-vs>
+
+  out vec2 v_uv;
+  out vec3 v_worldNormal;
+  out vec3 v_worldPos;
+
+  uniform TexCoords {
+    vec4 tilingOffset;
+  };
+
+  vec4 vert () {
+    StandardVertInput In;
+    CCVertInput(In);
+
+    mat4 matWorld, matWorldIT;
+    CCGetWorldMatrixFull(matWorld, matWorldIT);
+
+    vec4 worldPos = matWorld * In.position;
+    v_worldPos = worldPos.xyz;
+    v_worldNormal = normalize((matWorldIT * vec4(In.normal, 0.0)).xyz);
+
+    v_uv = a_texCoord * tilingOffset.xy + tilingOffset.zw;
+    #if SAMPLE_FROM_RT
+      CC_HANDLE_RT_SAMPLE_FLIP(v_uv);
+    #endif
+
+    CC_TRANSFER_FOG(worldPos);
+    return cc_matProj * (cc_matView * worldPos);
+  }
+}%
+
+CCProgram vehicle-fs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <legacy/output-standard>
+  #include <legacy/fog-fs>
+
+  in vec2 v_uv;
+  in vec3 v_worldNormal;
+  in vec3 v_worldPos;
+
+  uniform sampler2D mainTexture;
+
+  uniform Constant {
+    vec4 mainColor;
+    vec4 colorScaleAndCutoff; // xyz=colorScale, w=unused
+    vec4 lightingParams;      // x=smoothness
+  };
+
+  vec4 frag () {
+    // TextureMask: G=darker factor, B=brighter factor, A=raw color override
+    vec4 tex = texture(mainTexture, v_uv);
+    tex.rgb = SRGBToLinear(tex.rgb);
+
+    vec4 color = mainColor;
+    color.rgb *= colorScaleAndCutoff.xyz;
+
+    // --- Color zone mixing ---
+    vec3 darkerColor = color.rgb * 0.6;
+    vec3 baseMixed   = mix(color.rgb, darkerColor, tex.g);
+    vec3 colorMixed  = baseMixed + 0.02 * tex.b;
+    vec3 darkerFinal = colorMixed * 0.5;
+
+    // --- Diffuse (hardcoded light direction, smoothstep shaped) ---
+    vec3 N = normalize(v_worldNormal);
+    vec3 L = normalize(vec3(-0.2, 0.9, -0.1));
+    float diffuse = clamp(smoothstep(-0.29, 1.1, dot(L, N)), 0.0, 1.0);
+    vec3 litColor = mix(darkerFinal, colorMixed, diffuse);
+
+    // --- Specular (Phong reflection) ---
+    float smoothness = lightingParams.x;
+    vec3 V     = normalize(cc_cameraPos.xyz - v_worldPos);
+    vec3 R     = reflect(L, N);
+    float spec = pow(clamp(smoothstep(-0.1, 1.0, -dot(R, V)), 0.0, 1.0), smoothness * 5.0) * smoothness;
+
+    // Screen-blend specular toward white
+    vec3 finalColor = litColor + spec * (1.0 - litColor);
+
+    // A channel: tex.a=1 overrides to raw texture RGB
+    vec4 o;
+    o.rgb = mix(finalColor, tex.rgb, tex.a);
+    o.a   = color.a;
+
+    CC_APPLY_FOG(o);
+    return CCFragOutput(o);
+  }
+}%
+
+CCProgram planar-shadow-vs %{
+  precision highp float;
+  #include <legacy/input>
+  #include <builtin/uniforms/cc-global>
+  #include <legacy/decode-base>
+  #include <legacy/local-batch>
+  #include <builtin/uniforms/cc-shadow>
+  #include <common/lighting/functions>
+
+  out float v_dist;
+
+  vec4 vert () {
+    vec4 position;
+    CCVertInput(position);
+    mat4 matWorld, matWorldIT;
+    CCGetWorldMatrixFull(matWorld, matWorldIT);
+    vec3 worldPos = (matWorld * position).xyz;
+    vec4 shadowPos = CalculatePlanarShadowPos(worldPos, cc_cameraPos.xyz, cc_mainLitDir.xyz, cc_planarNDInfo);
+    position = CalculatePlanarShadowClipPos(shadowPos, cc_cameraPos.xyz, cc_matView, cc_matProj, cc_nearFar, cc_shadowWHPBInfo.w);
+    v_dist = shadowPos.w;
+    return position;
+  }
+}%
+
+CCProgram planar-shadow-fs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-shadow>
+  #include <legacy/output>
+
+  in float v_dist;
+
+  vec4 frag () {
+    if (v_dist < 0.0) discard;
+    return CCFragOutput(cc_shadowColor);
+  }
+}%
+
+CCProgram surface-vertex-silhouette-edge %{
+  uniform OutlineVert {
+    vec4 outlineParams; // x: line width, y: depth bias
+  };
+
+  #define CC_SURFACES_VERTEX_MODIFY_LOCAL_POS
+  vec3 SurfacesVertexModifyLocalPos(in SurfacesStandardVertexIntermediate In)
+  {
+    float width = outlineParams.x * 0.001;
+    return In.position.xyz + normalize(In.normal) * width;
+  }
+
+  #define CC_SURFACES_VERTEX_MODIFY_CLIP_POS
+  vec4 SurfacesVertexModifyClipPos(in SurfacesStandardVertexIntermediate In)
+  {
+    vec4 clipPos = In.clipPos;
+    float scaleZ = cc_nearFar.z == 0.0 ? 0.5 : 1.0;
+    clipPos.z -= outlineParams.y * 0.002 * scaleZ;
+    return clipPos;
+  }
+}%
+
+CCProgram surface-fragment-silhouette-edge %{
+  uniform OutlineFrag {
+    vec4 baseColor;
+  };
+  #if USE_BASE_COLOR_MAP
+    uniform sampler2D baseColorMap;
+  #endif
+
+  #define CC_SURFACES_FRAGMENT_MODIFY_BASECOLOR_AND_TRANSPARENCY
+  vec4 SurfacesFragmentModifyBaseColorAndTransparency()
+  {
+    vec4 color = vec4(1.0);
+    color.rgb = SRGBToLinear(baseColor.rgb);
+    #if USE_BASE_COLOR_MAP
+      vec4 texColor = texture(baseColorMap, FSInput_texcoord);
+      texColor.rgb = SRGBToLinear(texColor.rgb);
+      color *= texColor;
+    #endif
+    return color;
+  }
+}%
+
+CCProgram silhouette-edge-vs %{
+  precision highp float;
+  #include <surfaces/effect-macros/silhouette-edge>
+  #include <surfaces/includes/common-vs>
+  #include <surface-vertex-silhouette-edge>
+  #include <shading-entries/main-functions/misc/silhouette-edge-vs>
+}%
+
+CCProgram silhouette-edge-fs %{
+  precision highp float;
+  #include <surfaces/effect-macros/silhouette-edge>
+  #include <surfaces/includes/common-fs>
+  #include <surface-fragment-silhouette-edge>
+  #include <shading-entries/main-functions/misc/silhouette-edge-fs>
+}%
