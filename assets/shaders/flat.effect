@@ -1,0 +1,38 @@
+// Single flat colour, no lighting. Used for the backdrop plane.
+CCEffect %{
+  techniques:
+  - name: opaque
+    passes:
+    - vert: flat-vs:vert
+      frag: flat-fs:frag
+      properties:
+        mainColor: { value: [1, 1, 1, 1], editor: { type: color } }
+}%
+
+CCProgram flat-vs %{
+  precision mediump float;
+  #include <legacy/input>
+  #include <builtin/uniforms/cc-global>
+  #include <legacy/local-batch>
+
+  vec4 vert () {
+    vec4 position;
+    CCVertInput(position);
+    mat4 matWorld;
+    CCGetWorldMatrix(matWorld);
+    return cc_matProj * (cc_matView * matWorld) * position;
+  }
+}%
+
+CCProgram flat-fs %{
+  precision mediump float;
+  #include <legacy/output>
+
+  uniform Constant {
+    vec4 mainColor;
+  };
+
+  vec4 frag () {
+    return CCFragOutput(mainColor);
+  }
+}%
