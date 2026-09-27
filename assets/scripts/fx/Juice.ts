@@ -35,9 +35,23 @@ export function wobble(node: Node, degrees = FX.wobble.degrees, duration = FX.wo
         .start();
 }
 
-export function dropIn(node: Node, from: Vec3, to: Vec3, duration = FX.dropDuration, onDone?: () => void): void {
+/** Hops the node along a parabola from `from` to `to` (local positions), `height` above the chord. */
+export function arcTo(node: Node, from: Vec3, to: Vec3, height: number, duration = FX.arcDuration, onDone?: () => void): void {
+    const state = { t: 0 };
+    const pos = new Vec3();
     node.setPosition(from);
-    const t = tween(node).to(duration, { position: to.clone() }, { easing: 'bounceOut' });
-    if (onDone) t.call(onDone);
-    t.start();
+    tween(state)
+        .to(duration, { t: 1 }, {
+            onUpdate: () => {
+                const t = state.t;
+                Vec3.lerp(pos, from, to, t);
+                pos.y += height * 4 * t * (1 - t);
+                node.setPosition(pos);
+            },
+        })
+        .call(() => {
+            node.setPosition(to);
+            if (onDone) onDone();
+        })
+        .start();
 }

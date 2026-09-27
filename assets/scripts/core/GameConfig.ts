@@ -15,19 +15,42 @@ export const GameConfig = {
         queueGap: 0.7,
         /** Gap between two buses standing in the same row. */
         rowGap: 0.45,
-        /** Time for the reverse-park manoeuvre into a slot. */
-        parkDuration: 0.7,
-        /** Wheel travel applied per frame while reversing (visual only). */
-        parkWheelSpin: 0.06,
-        /** Time for the buses behind a dispatched bus to roll forward in their row. */
-        rowShiftDuration: 0.35,
+        /** Reverse-park manoeuvre: the bus drives this far past the slot, then backs in over `parkDuration`. */
+        parkOvershoot: 1.5,
+        parkDuration: 0.9,
+        /**
+         * Buses behind a dispatched bus roll forward with the same accel / brake profile as the
+         * leader (so they can never catch up with it), each starting this much later than the one
+         * in front.
+         */
+        rowShiftStagger: 0.08,
         /** "Đóng hòm": the lid drops from this height onto the bus. */
         lidDropHeight: 1.6,
         lidDropDuration: 0.32,
         lidPunch: { amount: 0.08, duration: 0.3 },
         parkPunch: { amount: 0.06, duration: 0.25 },
-        tapPunch: { amount: 0.14, duration: 0.3 },
+        tapPunch: { amount: 0.1, duration: 0.3 },
         rejectWobble: { degrees: 5, duration: 0.3 },
+        /**
+         * Fake suspension: the body (not the wheels) pitches with longitudinal acceleration and
+         * rolls with lateral acceleration, on a damped spring so it settles with a small bounce.
+         * Angles in degrees, accelerations in m/s².
+         */
+        suspension: {
+            pitchPerAccel: 0.32,
+            maxPitch: 7,
+            rollPerAccel: 0.2,
+            maxRoll: 8,
+            stiffness: 150,
+            damping: 13,
+            /** Velocity spikes above this are treated as teleports and ignored. */
+            maxAccel: 60,
+            /** Spring kicks (deg/s): a passenger dropping into a seat, the lid slamming shut. */
+            boardKick: 70,
+            lidKick: 160,
+        },
+        /** The bus the hint points at hops on the spot. */
+        hintBob: { height: 0.1, period: 0.5 },
     },
 
     road: {
@@ -53,9 +76,9 @@ export const GameConfig = {
         doorOffset: 1.35,
         /** Scale applied to a passenger once seated. */
         seatedScale: 0.78,
-        /** Passengers drop into their seat from this height, over this time. */
-        dropHeight: 1.2,
-        dropDuration: 0.25,
+        /** Passengers hop from the door into their seat: arc height and duration. */
+        hopHeight: 0.9,
+        hopDuration: 0.28,
         /** How often the bus re-checks whether the last walkers have sat down before leaving. */
         settlePoll: 0.1,
     },
@@ -81,8 +104,15 @@ export const GameConfig = {
         minDistance: 4,
         maxDistance: 400,
         searchIterations: 24,
+        /** Bisection steps used to balance the slack above / below the framed box. */
+        shiftIterations: 16,
         /** Small pull-back after the search so the box never touches the margin. */
         distanceSafety: 1.002,
+        /** Screen shakes (world units, seconds). */
+        shake: {
+            lid: { amplitude: 0.1, duration: 0.25 },
+            lose: { amplitude: 0.3, duration: 0.5 },
+        },
     },
 
     hint: {
@@ -109,6 +139,12 @@ export const GameConfig = {
     },
 
     barrier: {
+        /** Name of the hinged arm node inside the Barrier prefab (mesh extends along its local +Z). */
+        armNode: 'Barrier_Open',
+        /** Arm rotation about the hinge when open (degrees, negative = tip up). */
+        openAngle: -85,
+        openDuration: 0.35,
+        closeDuration: 0.5,
         punch: { amount: 0.18, duration: 0.4 },
     },
 
@@ -117,7 +153,26 @@ export const GameConfig = {
         punch: { amount: 0.15, duration: 0.28, attackRatio: 0.35, squashFactor: 0.6 },
         popDuration: 0.3,
         wobble: { degrees: 6, duration: 0.32, secondSwing: 0.5 },
-        dropDuration: 0.28,
+        arcDuration: 0.28,
+        /**
+         * Presets of the 2D particle bursts drawn on the canvas (fx/FxLayer.ts). Sizes and speeds
+         * are in design pixels, life in seconds, gravity in px/s² (positive = falls).
+         */
+        burst: {
+            /** Bus is full: a ring of dots in the bus colour. */
+            full: { count: 14, size: 22, speed: 560, life: 0.55, gravity: 700, angle: 90, spread: 180, spin: 720 },
+            /** Puff behind a bus that starts driving. */
+            exhaust: { count: 5, size: 44, speed: 120, life: 0.5, gravity: -120, angle: 90, spread: 180 },
+            /** Win: rectangles raining from the top edge. */
+            confetti: { count: 70, size: 26, speed: 260, life: 2.2, gravity: 520, angle: -90, spread: 70, stretch: 0.55, spin: 540, spawnWidth: 1080 },
+        },
+        exhaustColor: { r: 210, g: 210, b: 210, a: 170 },
+        confettiColors: [
+            { r: 255, g: 90, b: 90 }, { r: 90, g: 160, b: 255 }, { r: 110, g: 220, b: 120 },
+            { r: 255, g: 210, b: 60 }, { r: 190, g: 110, b: 255 }, { r: 255, g: 255, b: 255 },
+        ],
+        /** Floating labels such as "FULL!": start this far above the anchor and rise further (design px). */
+        floatText: { fontSize: 64, startOffset: 110, rise: 150, duration: 0.85, popScale: 1.3 },
     },
 
     ui: {
@@ -130,7 +185,9 @@ export const GameConfig = {
             level: 'LEVEL {n}',
             capacity: 'ROAD {n}/{max}',
             roadFull: 'ROAD FULL!',
+            notFront: 'ONLY THE FRONT BUS CAN GO!',
             noParking: 'NO PARKING LEFT!',
+            busFull: 'FULL!',
         },
         anim: {
             hintPulseScale: 1.18,

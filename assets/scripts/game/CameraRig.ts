@@ -4,8 +4,11 @@ import { GameConfig } from '../core/GameConfig';
 const { ccclass, property } = _decorator;
 
 /**
- * Frames a world-space box in the camera for any aspect ratio: the camera looks at the box
- * centre from a fixed pitch and pulls back until all eight corners fit inside the viewport.
+ * Frames a world-space box in the camera for any aspect ratio. The camera looks down at a fixed
+ * pitch and pulls back until all eight box corners fit inside the viewport (minus margins and
+ * HUD reserves). Because of perspective the near edge of the box would touch the bottom long
+ * before the far edge touches the top, so the look-at point is also slid along the depth axis
+ * until the top and bottom slack are equal: that is what lets the camera get as close as possible.
  */
 @ccclass('CameraRig')
 export class CameraRig extends Component {
@@ -22,11 +25,27 @@ export class CameraRig extends Component {
 
     private readonly corners: Vec3[] = [];
     private readonly center = new Vec3();
+    private readonly target = new Vec3();
     private readonly forward = new Vec3();
     private readonly pos = new Vec3();
     private readonly view = new Mat4();
     private readonly proj = new Mat4();
     private readonly clip = new Vec4();
+    /** Resting position from the last fit(); shakes are offsets from it. */
+    private readonly basePos = new Vec3();
+    private readonly shakeOffset = new Vec3();
+    private shakeAmplitude = 0;
+    private shakeDuration = 0;
+    private shakeLeft = 0;
+
+    // Scratch results of project(): NDC extents of the corners and whether all were in front.
+    private ndcMinX = 0;
+    private ndcMaxX = 0;
+    private ndcMinY = 0;
+    private ndcMaxY = 0;
+    private inFront = true;
+    /** Depth offset of the look-at point from the box centre chosen by the last fitsAt(). */
+    private shift = 0;
 
     onLoad(): void {
         for (let i = 0; i < 8; i++) this.corners.push(new Vec3());
@@ -74,28 +93,85 @@ export class CameraRig extends Component {
             if (this.fitsAt(d)) hi = d;
             else lo = d;
         }
-        Vec3.scaleAndAdd(this.pos, this.center, this.forward, -hi * cfg.distanceSafety);
+        const distance = hi * cfg.distanceSafety;
+        this.fitsAt(distance);
+        this.lookAt(distance, this.shift);
+        this.basePos.set(this.pos);
         this.node.setWorldPosition(this.pos);
-        this.node.lookAt(this.center, Vec3.UP);
+        this.node.lookAt(this.target, Vec3.UP);
     }
 
-    /** Projects the box corners with a camera `distance` away from the centre and checks NDC bounds. */
+    /** Screen shake: random in-plane offsets that fade out quadratically over `duration`. */
+    shake(amplitude: number, duration: number): void {
+        this.shakeAmplitude = Math.max(amplitude, this.shakeAmplitude * (this.shakeLeft / Math.max(this.shakeDuration, 1e-3)));
+        this.shakeDuration = duration;
+        this.shakeLeft = duration;
+    }
+
+    lateUpdate(dt: number): void {
+        if (this.shakeLeft <= 0) return;
+        this.shakeLeft -= dt;
+        const k = Math.max(0, this.shakeLeft / this.shakeDuration);
+        const a = this.shakeAmplitude * k * k;
+        Vec3.scaleAndAdd(this.shakeOffset, this.basePos, this.node.right, (Math.random() * 2 - 1) * a);
+        Vec3.scaleAndAdd(this.shakeOffset, this.shakeOffset, this.node.up, (Math.random() * 2 - 1) * a);
+        this.node.setWorldPosition(this.shakeOffset);
+        if (this.shakeLeft <= 0) this.shakeAmplitude = 0;
+    }
+
+    /**
+     * Can the box be framed from `distance` away? Slides the look-at point along Z (bisection)
+     * until the slack above and below the box is equal, then checks every corner.
+     */
     private fitsAt(distance: number): boolean {
-        Vec3.scaleAndAdd(this.pos, this.center, this.forward, -distance);
-        Mat4.lookAt(this.view, this.pos, this.center, Vec3.UP);
         const minX = -1 + 2 * this.margin;
         const maxX = 1 - 2 * this.margin;
         const minY = -1 + 2 * (this.margin + this.bottomReserve);
         const maxY = 1 - 2 * (this.margin + this.topReserve);
+
+        const halfDepth = (this.boundsMax.z - this.boundsMin.z) * 0.5;
+        let lo = -halfDepth;
+        let hi = halfDepth;
+        for (let iter = 0; iter < GameConfig.camera.shiftIterations; iter++) {
+            const s = (lo + hi) * 0.5;
+            this.project(distance, s);
+            // Moving the look-at point (and the camera) forward shifts everything down on screen.
+            if (maxY - this.ndcMaxY > this.ndcMinY - minY) hi = s;
+            else lo = s;
+        }
+        this.shift = (lo + hi) * 0.5;
+        this.project(distance, this.shift);
+        return this.inFront
+            && this.ndcMinX >= minX && this.ndcMaxX <= maxX
+            && this.ndcMinY >= minY && this.ndcMaxY <= maxY;
+    }
+
+    private lookAt(distance: number, shift: number): void {
+        this.target.set(this.center.x, this.center.y, this.center.z + shift);
+        Vec3.scaleAndAdd(this.pos, this.target, this.forward, -distance);
+    }
+
+    /** Projects the box corners for a camera `distance` away from the shifted look-at point. */
+    private project(distance: number, shift: number): void {
+        this.lookAt(distance, shift);
+        Mat4.lookAt(this.view, this.pos, this.target, Vec3.UP);
+        this.ndcMinX = this.ndcMinY = Infinity;
+        this.ndcMaxX = this.ndcMaxY = -Infinity;
+        this.inFront = true;
         for (const c of this.corners) {
             this.clip.set(c.x, c.y, c.z, 1);
             Vec4.transformMat4(this.clip, this.clip, this.view);
             Vec4.transformMat4(this.clip, this.clip, this.proj);
-            if (this.clip.w <= 0) return false;
+            if (this.clip.w <= 0) {
+                this.inFront = false;
+                return;
+            }
             const x = this.clip.x / this.clip.w;
             const y = this.clip.y / this.clip.w;
-            if (x < minX || x > maxX || y < minY || y > maxY) return false;
+            this.ndcMinX = Math.min(this.ndcMinX, x);
+            this.ndcMaxX = Math.max(this.ndcMaxX, x);
+            this.ndcMinY = Math.min(this.ndcMinY, y);
+            this.ndcMaxY = Math.max(this.ndcMaxY, y);
         }
-        return true;
     }
 }

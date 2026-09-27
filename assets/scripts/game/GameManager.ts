@@ -1,17 +1,20 @@
 import {
-    _decorator, Camera, Component, Material, Node, Prefab, Vec2, Vec3, director, instantiate,
+    _decorator, Camera, Color, Component, Material, Node, Prefab, UITransform, Vec2, Vec3, director, instantiate,
 } from 'cc';
 import { GameConfig } from '../core/GameConfig';
 import { LEVEL_1, validateLevel } from '../core/LevelData';
 import { Path } from '../core/Path';
 import { BusColor, BusSpec, BusState, GameState, LevelDef } from '../core/Types';
-import { dropIn, punchScale } from '../fx/Juice';
+import { FxLayer } from '../fx/FxLayer';
+import { arcTo } from '../fx/Juice';
 import { GameplayView } from '../ui/GameplayView';
 import { LoseView } from '../ui/LoseView';
 import { WinView } from '../ui/WinView';
+import { Barrier } from './Barrier';
 import { Bus, BusTrip, BusTripListener } from './Bus';
 import { BusStop } from './BusStop';
-import { ColorMaterials } from './ColorPalette';
+import { CameraRig } from './CameraRig';
+import { ColorMaterials, uiColor } from './ColorPalette';
 import { Passenger } from './Passenger';
 import { TapInput } from './TapInput';
 
@@ -20,7 +23,10 @@ const { ccclass, property } = _decorator;
 /** Passengers queue on the outside of the loop, i.e. on the right of the driving direction. */
 const BUS_RIGHT = new Vec3(1, 0, 0);
 const HUD_UP = new Vec3(0, GameConfig.hud.anchorHeight, 0);
-const SEAT_UP = new Vec3(0, GameConfig.boarding.dropHeight, 0);
+const EXHAUST = GameConfig.fx.exhaustColor;
+const EXHAUST_COLORS = [new Color(EXHAUST.r, EXHAUST.g, EXHAUST.b, EXHAUST.a)];
+const CONFETTI_COLORS = GameConfig.fx.confettiColors.map((c) => new Color(c.r, c.g, c.b, 255));
+const WHITE = Color.WHITE.clone();
 
 /**
  * Owns the level: spawns rows, routes buses over the road loop, runs boarding at the stop,
@@ -84,6 +90,11 @@ export class GameManager extends Component implements BusTripListener {
     private gameplay: GameplayView = null;
     private winView: WinView = null;
     private loseView: LoseView = null;
+    private fx: FxLayer = null;
+    private gate: Barrier = null;
+    private cameraRig: CameraRig | null = null;
+    /** Bus currently marked by the tap hint (hops on the spot). */
+    private hinted: Bus | null = null;
 
     /** Passengers that left the queue for a bus but have not sat down yet. */
     private readonly boardersInFlight = new Map<Bus, number>();
@@ -111,6 +122,8 @@ export class GameManager extends Component implements BusTripListener {
 
         this.materials = new ColorMaterials(this.vehicleMaterial, this.stickmanMaterial);
         this.busPrefabs = { 4: this.bus04Prefab, 6: this.bus06Prefab, 10: this.bus10Prefab };
+        this.cameraRig = this.mainCamera.getComponent(CameraRig);
+        this.gate = new Barrier(this.barrier);
         this.buildRoad();
         if (this.level.rows.length > this.rowsRoot.children.length) {
             console.error(`Level ${this.level.id} has ${this.level.rows.length} rows but the scene only has ${this.rowsRoot.children.length} row markers`);
@@ -174,10 +187,14 @@ export class GameManager extends Component implements BusTripListener {
         return out;
     }
 
-    /** Converts a world anchor into HUD space, slightly above the anchor. */
-    private worldToHud(anchor: Vec3, out: Vec3): Vec3 {
+    /** Converts a world anchor into the local space of a canvas node, slightly above the anchor. */
+    private worldToUi(anchor: Vec3, uiNode: Node, out: Vec3): Vec3 {
         Vec3.add(this.tmpWorld, anchor, HUD_UP);
-        return this.mainCamera.convertToUINode(this.tmpWorld, this.gameplay.node, out);
+        return this.mainCamera.convertToUINode(this.tmpWorld, uiNode, out);
+    }
+
+    private shake(preset: { amplitude: number; duration: number }): void {
+        if (this.cameraRig) this.cameraRig.shake(preset.amplitude, preset.duration);
     }
 
     /** Sends a bus along a plain waypoint path (no road, no stop). */
@@ -241,6 +258,9 @@ export class GameManager extends Component implements BusTripListener {
         this.loseView.node.setParent(this.canvas, false);
         this.loseView.onRetry = () => this.restart();
         this.loseView.hide();
+
+        // Created last so particles and floating labels draw above the end cards.
+        this.fx = new FxLayer(this.canvas, this.gameplay.fxSprite);
     }
 
     // ---------------------------------------------------------------- input / dispatch
@@ -249,6 +269,7 @@ export class GameManager extends Component implements BusTripListener {
         if (this.state !== GameState.Playing) return;
         if (!this.canDispatch(bus)) {
             bus.rejectFeedback();
+            if (bus.state === BusState.InRow) this.gameplay.toast(GameConfig.ui.text.notFront);
             return;
         }
         if (this.busesOnRoad() >= this.level.roadCapacity) {
@@ -299,13 +320,31 @@ export class GameManager extends Component implements BusTripListener {
         bus.state = BusState.OnRoad;
         bus.startTrip(trip, this);
         bus.tapFeedback();
+        bus.pointAhead(-bus.length / 2, this.tmpWorld);
+        this.fx.burst(this.worldToUi(this.tmpWorld, this.fx.node, this.tmpUi), EXHAUST_COLORS, GameConfig.fx.burst.exhaust);
         this.gameplay.showTapHint(false);
     }
 
+    /**
+     * The buses behind a dispatched bus roll up to their new spots. They drive with the same
+     * accel / brake profile as the leader and start slightly later, so they cannot overlap it.
+     */
     private shiftRow(rowIndex: number): void {
         const row = this.rows[rowIndex];
         const positions = this.rowPositions(row, rowIndex);
-        row.forEach((bus, i) => bus.moveTo(positions[i], GameConfig.bus.rowShiftDuration));
+        row.forEach((bus, i) => {
+            const target = positions[i];
+            const roll = () => {
+                // The bus may have been dispatched itself while waiting for its turn.
+                if (bus.state !== BusState.InRow) return;
+                const from = bus.node.position;
+                if (Math.abs(target.z - from.z) < 1e-3) return;
+                GameManager.driveAlong(bus, [new Vec2(from.x, from.z), new Vec2(target.x, target.z)], this);
+            };
+            const delay = i * GameConfig.bus.rowShiftStagger;
+            if (delay > 0) this.scheduleOnce(roll, delay);
+            else roll();
+        });
     }
 
     // ---------------------------------------------------------------- road queue
@@ -356,9 +395,18 @@ export class GameManager extends Component implements BusTripListener {
             this.scheduleOnce(() => this.finishBoarding(bus), GameConfig.boarding.settlePoll);
             return;
         }
-        if (bus.isFull) bus.closeLid();
+        if (bus.isFull) this.celebrateFull(bus);
         bus.state = BusState.OnRoad;
         bus.resume();
+    }
+
+    /** Lid drops, a burst in the bus colour, a floating label and a small screen kick. */
+    private celebrateFull(bus: Bus): void {
+        bus.closeLid();
+        const at = this.worldToUi(bus.node.worldPosition, this.fx.node, this.tmpUi);
+        this.fx.burst(at, [uiColor(bus.color), WHITE], GameConfig.fx.burst.full);
+        this.fx.floatText(GameConfig.ui.text.busFull, at, uiColor(bus.color));
+        this.shake(GameConfig.camera.shake.lid);
     }
 
     private boardPassenger(bus: Bus, passenger: Passenger, seatIndex: number): void {
@@ -367,15 +415,19 @@ export class GameManager extends Component implements BusTripListener {
         Vec3.transformQuat(this.tmpWorld, BUS_RIGHT, bus.node.worldRotation);
         Vec3.scaleAndAdd(this.tmpWorld, bus.node.worldPosition, this.tmpWorld, GameConfig.boarding.doorOffset);
         passenger.walkTo(this.tmpWorld, GameConfig.boarding.walkSpeed, () => {
-            const scale = GameConfig.boarding.seatedScale;
-            passenger.node.setParent(bus.seatRoot, false);
-            passenger.node.setScale(scale, scale, scale);
+            const cfg = GameConfig.boarding;
+            // Keep the world position so the hop starts at the door, then continue in seat space.
+            passenger.node.setParent(bus.seatRoot, true);
+            const door = passenger.node.position.clone();
+            passenger.node.setScale(cfg.seatedScale, cfg.seatedScale, cfg.seatedScale);
             passenger.node.setRotationFromEuler(0, 0, 0);
             if (passenger.shadow) passenger.shadow.active = false;
             passenger.sit();
-            const seat = bus.seatPosition(seatIndex);
-            dropIn(passenger.node, Vec3.add(new Vec3(), seat, SEAT_UP), seat, GameConfig.boarding.dropDuration,
-                () => this.addBoarder(bus, -1));
+            arcTo(passenger.node, door, bus.seatPosition(seatIndex), cfg.hopHeight, cfg.hopDuration, () => {
+                // Boarding from the +X side: the body dips towards the door.
+                bus.kickSuspension(0, -GameConfig.bus.suspension.boardKick);
+                this.addBoarder(bus, -1);
+            });
         });
     }
 
@@ -405,7 +457,7 @@ export class GameManager extends Component implements BusTripListener {
         const exit = this.roadExit;
         if (bus.isFull) {
             bus.state = BusState.Exiting;
-            this.openBarrier();
+            this.gate.open();
             GameManager.driveAlong(bus, [new Vec2(exit.x, exit.y), ...GameManager.pointsOf(this.gatePath)], this);
             return;
         }
@@ -421,7 +473,10 @@ export class GameManager extends Component implements BusTripListener {
         const lane = GameManager.pointsOf(this.returnPath);
         const last = lane.length ? lane[lane.length - 1] : exit;
         const slotPos = this.slotPosition(slot);
-        GameManager.driveAlong(bus, [new Vec2(exit.x, exit.y), ...lane, new Vec2(slotPos.x, last.y)], this);
+        // Drive a little past the slot along the arrival lane; reversePark() backs in from there.
+        const dir = Math.sign(slotPos.x - last.x) || 1;
+        const stop = new Vec2(slotPos.x + dir * GameConfig.bus.parkOvershoot, last.y);
+        GameManager.driveAlong(bus, [new Vec2(exit.x, exit.y), ...lane, stop], this);
     }
 
     private onBusGone(bus: Bus): void {
@@ -429,12 +484,8 @@ export class GameManager extends Component implements BusTripListener {
         this.buses = this.buses.filter((b) => b !== bus);
         bus.node.destroy();
         this.busesLeft--;
+        if (!this.buses.some((b) => b.state === BusState.Exiting)) this.gate.close();
         if (this.busesLeft <= 0) this.win();
-    }
-
-    private openBarrier(): void {
-        if (!this.barrier) return;
-        punchScale(this.barrier, 1, GameConfig.barrier.punch.amount, GameConfig.barrier.punch.duration);
     }
 
     // ---------------------------------------------------------------- outcome
@@ -442,15 +493,29 @@ export class GameManager extends Component implements BusTripListener {
     private win(): void {
         if (this.state !== GameState.Playing) return;
         this.state = GameState.Won;
+        this.setHinted(null);
         this.gameplay.showTapHint(false);
-        this.scheduleOnce(() => this.winView.show(), GameConfig.ui.resultDelay);
+        this.scheduleOnce(() => {
+            this.winView.show();
+            this.confetti();
+        }, GameConfig.ui.resultDelay);
+    }
+
+    /** Confetti rain from the top edge of the canvas. */
+    private confetti(): void {
+        const preset = GameConfig.fx.burst.confetti;
+        const size = this.canvas.getComponent(UITransform).contentSize;
+        this.tmpUi.set(0, size.height / 2 + preset.size, 0);
+        this.fx.burst(this.tmpUi, CONFETTI_COLORS, preset);
     }
 
     private lose(bus: Bus): void {
         if (this.state !== GameState.Playing) return;
         this.state = GameState.Lost;
         bus.halt();
-        bus.rejectFeedback();
+        bus.crashFeedback();
+        this.shake(GameConfig.camera.shake.lose);
+        this.setHinted(null);
         this.gameplay.showTapHint(false);
         this.gameplay.toast(GameConfig.ui.text.noParking, GameConfig.ui.loseToastDuration);
         this.scheduleOnce(() => this.loseView.show(), GameConfig.ui.resultDelay + GameConfig.ui.loseExtraDelay);
@@ -472,11 +537,19 @@ export class GameManager extends Component implements BusTripListener {
         this.idleTimer += dt;
         const wantHint = !this.hasTapped || this.idleTimer > GameConfig.hint.idleDelay;
         const target = wantHint && this.busesOnRoad() < this.level.roadCapacity ? this.suggestBus() : null;
+        this.setHinted(target);
         if (target) {
-            this.gameplay.showTapHint(true, this.worldToHud(target.node.worldPosition, this.tmpUi));
+            this.gameplay.showTapHint(true, this.worldToUi(target.node.worldPosition, this.gameplay.node, this.tmpUi));
         } else {
             this.gameplay.showTapHint(false);
         }
+    }
+
+    private setHinted(bus: Bus | null): void {
+        if (this.hinted === bus) return;
+        if (this.hinted && this.hinted.isValid) this.hinted.setHighlighted(false);
+        this.hinted = bus;
+        if (bus) bus.setHighlighted(true);
     }
 
     /**

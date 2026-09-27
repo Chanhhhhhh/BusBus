@@ -1,4 +1,4 @@
-import { _decorator, Button, Component, Label, Layers, MeshRenderer, Node, RenderRoot2D, Tween, Vec3, tween } from 'cc';
+import { _decorator, Button, Component, Label, Layers, MeshRenderer, Node, RenderRoot2D, SpriteFrame, Tween, Vec3, tween } from 'cc';
 import { GameConfig } from '../core/GameConfig';
 
 const { ccclass, property } = _decorator;
@@ -26,6 +26,8 @@ export class GameplayView extends Component {
     @property(Node) tapHint: Node = null;
     @property(Label) toastLabel: Label = null;
     @property(Button) ctaButton: Button = null;
+    /** Soft round sprite the runtime particle bursts are made of (fx/FxLayer.ts). */
+    @property(SpriteFrame) fxSprite: SpriteFrame = null;
 
     onCta: (() => void) | null = null;
 
