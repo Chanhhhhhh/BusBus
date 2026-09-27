@@ -9,8 +9,6 @@ const { ccclass, property } = _decorator;
 /** One leg of driving: a path plus the arc lengths of the points of interest on it. */
 export interface BusTrip {
     path: Path;
-    /** Arc length where the bus enters the road loop (-1 if the trip does not use the road). */
-    roadStartS: number;
     /** Arc lengths of the bus stops on the trip, in driving order (empty if the trip has no stop). */
     stops: number[];
 }
@@ -22,7 +20,22 @@ export interface BusTripListener {
     onTripEnd(bus: Bus): void;
 }
 
+/**
+ * Reverse-park manoeuvre: a quadratic curve from the stop point on the arrival lane, via the
+ * corner in front of the slot (`corner`), into the slot. The bus faces away from its direction
+ * of travel because it reverses.
+ */
+export interface ParkPlan {
+    from: Vec3;
+    corner: Vec3;
+    to: Vec3;
+    /** Half length of the bus. */
+    halfLength: number;
+}
+
 const R2D = 180 / Math.PI;
+const AXLE_FRONT = new Vec3();
+const AXLE_REAR = new Vec3();
 const D2R = Math.PI / 180;
 
 /** Wraps an angle difference in degrees into [-180, 180). */
@@ -55,8 +68,16 @@ export class Bus extends Component {
     rowIndex = -1;
     slotIndex = -1;
     seated = 0;
-    /** Arc-length limit imposed by the bus ahead; Infinity when unconstrained. */
+    /** Arc-length limit imposed by the traffic ahead (game/Traffic.ts); Infinity when unconstrained. */
     maxS = Infinity;
+    /** Start order of the current trip: buses that set off earlier have right of way (game/Traffic.ts). */
+    tripOrder = 0;
+    /** Reverse-park manoeuvre planned for the end of the current trip, or running. */
+    parkPlan: ParkPlan | null = null;
+    /** Progress (0..1) along `parkPlan` while the manoeuvre runs. */
+    parkT = 0;
+
+    private static tripCounter = 0;
 
     private trip: BusTrip | null = null;
     private listener: BusTripListener | null = null;
@@ -90,13 +111,11 @@ export class Bus extends Component {
     get isMoving(): boolean { return this.moving; }
     get currentTrip(): BusTrip | null { return this.trip; }
     get progress(): number { return this.s; }
+    get currentSpeed(): number { return this.speed; }
+    /** True while the reverse-park tween steers the bus. */
+    get isParking(): boolean { return this.parking; }
     /** Index in the current trip's `stops` of the next stop ahead. */
     get nextStopIndex(): number { return this.nextStop; }
-
-    /** Distance travelled along the road loop; negative while still driving towards the entry. */
-    get roadS(): number {
-        return this.trip && this.trip.roadStartS >= 0 ? this.s - this.trip.roadStartS : -Infinity;
-    }
 
     init(color: BusColor, material: Material): void {
         this.color = color;
@@ -111,7 +130,9 @@ export class Bus extends Component {
         this.trip = trip;
         this.listener = listener;
         this.s = 0;
-        this.maxS = Infinity;
+        // Held in place until Traffic has checked the way ahead (next frame).
+        this.maxS = 0;
+        this.tripOrder = ++Bus.tripCounter;
         this.nextStop = 0;
         this.moving = true;
         this.place(0);
@@ -208,11 +229,24 @@ export class Bus extends Component {
     }
 
     private place(s: number): void {
-        const path = this.trip.path;
-        path.posAt(s, this.tmpPos);
+        Bus.poseOnPath(this.trip.path, s, this.length, this.tmpPos, this.tmpDir);
         this.node.setPosition(this.tmpPos);
-        path.dirAt(s, this.tmpDir);
         this.node.setRotationFromEuler(0, Math.atan2(this.tmpDir.x, this.tmpDir.z) * R2D, 0);
+    }
+
+    /**
+     * Pose of a bus of length `length` at arc length `s` of a path: its front and rear axles both
+     * sit on the path (GameConfig.bus.axleOffset), the centre halfway between them. Writes the
+     * centre into `outPos` and the unit heading into `outDir`.
+     */
+    static poseOnPath(path: Path, s: number, length: number, outPos: Vec3, outDir: Vec3): void {
+        const offset = length * GameConfig.bus.axleOffset;
+        const front = path.pointAt(s + offset, AXLE_FRONT);
+        const rear = path.pointAt(s - offset, AXLE_REAR);
+        outPos.set((front.x + rear.x) / 2, 0, (front.z + rear.z) / 2);
+        outDir.set(front.x - rear.x, 0, front.z - rear.z);
+        if (outDir.lengthSqr() > 1e-10) outDir.normalize();
+        else path.dirAt(s, outDir);
     }
 
     private spinWheels(distance: number): void {
@@ -260,40 +294,52 @@ export class Bus extends Component {
         this.kickSuspension(cfg.suspension.lidKick, 0);
     }
 
+    /** Plans a reverse park into `slot`, starting from `from` (just past the slot on the arrival lane). */
+    planPark(from: Vec3, slot: Vec3): void {
+        this.parkPlan = {
+            from: from.clone(), corner: new Vec3(slot.x, 0, from.z), to: new Vec3(slot.x, 0, slot.z), halfLength: this.length / 2,
+        };
+    }
+
+    /** Position of the bus at `t` (0..1) along a park manoeuvre; returns its yaw in degrees. */
+    static parkPose(plan: ParkPlan, t: number, out: Vec3): number {
+        const { from: p0, corner: p1, to: p2 } = plan;
+        const u = 1 - t;
+        out.set(u * u * p0.x + 2 * u * t * p1.x + t * t * p2.x, 0, u * u * p0.z + 2 * u * t * p1.z + t * t * p2.z);
+        // Derivative of the curve; the bus faces the opposite way because it reverses.
+        const tx = 2 * u * (p1.x - p0.x) + 2 * t * (p2.x - p1.x);
+        const tz = 2 * u * (p1.z - p0.z) + 2 * t * (p2.z - p1.z);
+        // The tangent vanishes only at a degenerate plan; the bus then keeps facing the road.
+        return tx * tx + tz * tz > 1e-8 ? Math.atan2(-tx, -tz) * R2D : 0;
+    }
+
     /**
-     * Backs into the slot along a quadratic curve: from the current spot (just past the slot on
-     * the arrival lane) the bus reverses towards the corner in front of the slot and swings its
-     * rear into the bay, always facing away from its direction of travel, ending with yaw 0
-     * (facing the road).
+     * Backs into the slot along `parkPlan`: from the current spot (just past the slot on the
+     * arrival lane) the bus reverses towards the corner in front of the slot and swings its rear
+     * into the bay, ending with yaw 0 (facing the road).
      */
-    reversePark(slotPos: Vec3, duration: number, onDone: () => void): void {
+    reversePark(duration: number, onDone: () => void): void {
+        const plan = this.parkPlan;
+        if (!plan) return;
         this.halt();
         this.parking = true;
-        const p0 = this.node.position.clone();
-        const p1 = new Vec3(slotPos.x, 0, p0.z);
-        const p2 = slotPos.clone();
+        this.parkT = 0;
         const state = { t: 0 };
         const pos = new Vec3();
-        const tangent = new Vec3();
         tween(state)
             .to(duration, { t: 1 }, {
                 easing: 'quadInOut',
                 onUpdate: () => {
-                    const t = state.t;
-                    const u = 1 - t;
-                    pos.set(
-                        u * u * p0.x + 2 * u * t * p1.x + t * t * p2.x, 0,
-                        u * u * p0.z + 2 * u * t * p1.z + t * t * p2.z,
-                    );
-                    // Derivative of the curve; the bus faces the opposite way because it reverses.
-                    tangent.set(2 * u * (p1.x - p0.x) + 2 * t * (p2.x - p1.x), 0, 2 * u * (p1.z - p0.z) + 2 * t * (p2.z - p1.z));
+                    this.parkT = state.t;
+                    const yaw = Bus.parkPose(plan, state.t, pos);
                     this.node.setPosition(pos);
-                    this.node.setRotationFromEuler(0, Math.atan2(-tangent.x, -tangent.z) * R2D, 0);
+                    this.node.setRotationFromEuler(0, yaw, 0);
                 },
             })
             .call(() => {
                 this.parking = false;
-                this.node.setPosition(slotPos);
+                this.parkPlan = null;
+                this.node.setPosition(plan.to);
                 this.node.setRotationFromEuler(0, 0, 0);
                 AnimService.punchScale(this.body, 1, GameConfig.bus.parkPunch.amount, GameConfig.bus.parkPunch.duration);
                 onDone();

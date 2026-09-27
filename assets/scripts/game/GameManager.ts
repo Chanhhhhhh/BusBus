@@ -17,6 +17,7 @@ import { CameraRig } from './CameraRig';
 import { ColorMaterials, uiColor } from './ColorPalette';
 import { Passenger } from './Passenger';
 import { TapInput } from './TapInput';
+import { Traffic } from './Traffic';
 
 const { ccclass, property } = _decorator;
 
@@ -87,8 +88,10 @@ export class GameManager extends Component implements BusTripListener {
     private busesLeft = 0;
 
     private roadPoints: Vec2[] = [];
-    private roadEntry = new Vec2();
     private roadExit = new Vec2();
+    private readonly traffic = new Traffic();
+    /** Buses at the end of their return trip, waiting for their reverse-park area to clear. */
+    private readonly parkQueue: Bus[] = [];
     /** Point on the road centreline next to each bus stop. */
     private stopPoints: Vec3[] = [];
 
@@ -146,7 +149,8 @@ export class GameManager extends Component implements BusTripListener {
     }
 
     update(dt: number): void {
-        this.applyRoadQueue();
+        this.traffic.update(this.buses);
+        this.startPendingParks();
         this.updateHud(dt);
         if (this.autoplay) this.tickAutoplay(dt);
     }
@@ -159,7 +163,6 @@ export class GameManager extends Component implements BusTripListener {
             console.error('Road needs at least two waypoints');
             return;
         }
-        this.roadEntry.set(this.roadPoints[0]);
         this.roadExit.set(this.roadPoints[this.roadPoints.length - 1]);
 
         const road = new Path(this.roadPoints, 0);
@@ -215,7 +218,6 @@ export class GameManager extends Component implements BusTripListener {
     private static driveAlong(bus: Bus, points: Vec2[], listener: BusTripListener): void {
         bus.startTrip({
             path: new Path(points, GameConfig.road.cornerRadius, GameConfig.road.cornerSubdivisions),
-            roadStartS: -1,
             stops: [],
         }, listener);
     }
@@ -322,9 +324,9 @@ export class GameManager extends Component implements BusTripListener {
         const start = bus.node.position;
         const pts: Vec2[] = [new Vec2(start.x, start.z)];
 
-        if (bus.state === BusState.InRow) {
+        const fromRow = bus.state === BusState.InRow;
+        if (fromRow) {
             this.rows[bus.rowIndex].shift();
-            this.shiftRow(bus.rowIndex);
             GameManager.appendLane(pts, start, GameManager.pointsOf(this.rowExitPath));
         } else {
             this.slots[bus.slotIndex] = null;
@@ -336,11 +338,12 @@ export class GameManager extends Component implements BusTripListener {
         const path = new Path(pts, GameConfig.road.cornerRadius, GameConfig.road.cornerSubdivisions);
         const trip: BusTrip = {
             path,
-            roadStartS: path.closestS(this.roadEntry.x, this.roadEntry.y),
             stops: this.stopPoints.map((p) => path.closestS(p.x, p.z)),
         };
         bus.state = BusState.OnRoad;
         bus.startTrip(trip, this);
+        // After startTrip: the dispatched bus must have right of way over the buses rolling up behind it.
+        if (fromRow) this.shiftRow(bus.rowIndex);
         bus.tapFeedback();
         this.tapFx(bus);
         this.gameplay.showTapHint(false);
@@ -375,22 +378,16 @@ export class GameManager extends Component implements BusTripListener {
         });
     }
 
-    // ---------------------------------------------------------------- road queue
+    // ---------------------------------------------------------------- parking
 
-    /** Buses on the loop keep their distance: each one is capped by the bus in front of it. */
-    private applyRoadQueue(): void {
-        const moving = this.buses.filter((b) => b.state === BusState.OnRoad || b.state === BusState.Boarding);
-        moving.sort((a, b) => b.roadS - a.roadS);
-        for (let i = 0; i < moving.length; i++) {
-            const bus = moving[i];
-            const trip = bus.currentTrip;
-            if (i === 0 || !trip || trip.roadStartS < 0) {
-                bus.maxS = Infinity;
-                continue;
-            }
-            const leader = moving[i - 1];
-            const gap = (leader.length + bus.length) / 2 + GameConfig.bus.queueGap;
-            bus.maxS = trip.roadStartS + leader.roadS - gap;
+    /** Starts the reverse park of every waiting bus whose manoeuvre area is clear. */
+    private startPendingParks(): void {
+        for (let i = 0; i < this.parkQueue.length; i++) {
+            const bus = this.parkQueue[i];
+            if (this.state === GameState.Lost || !this.traffic.canStartPark(bus)) continue;
+            this.parkQueue.splice(i--, 1);
+            bus.state = BusState.Parking;
+            bus.reversePark(GameConfig.bus.parkDuration, () => { bus.state = BusState.Parked; });
         }
     }
 
@@ -472,12 +469,8 @@ export class GameManager extends Component implements BusTripListener {
                 this.onBusGone(bus);
                 break;
             case BusState.Returning:
-                bus.state = BusState.Parking;
-                bus.reversePark(
-                    this.slotPosition(bus.slotIndex),
-                    GameConfig.bus.parkDuration,
-                    () => { bus.state = BusState.Parked; },
-                );
+                this.parkQueue.push(bus);
+                this.startPendingParks();
                 break;
             default:
                 break;
@@ -508,6 +501,7 @@ export class GameManager extends Component implements BusTripListener {
         // Drive a little past the slot along the arrival lane; reversePark() backs in from there.
         const dir = Math.sign(slotPos.x - last.x) || 1;
         const stop = new Vec2(slotPos.x + dir * GameConfig.bus.parkOvershoot, last.y);
+        bus.planPark(new Vec3(stop.x, 0, stop.y), slotPos);
         GameManager.driveAlong(bus, [new Vec2(exit.x, exit.y), ...lane, stop], this);
     }
 

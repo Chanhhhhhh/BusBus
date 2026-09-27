@@ -1,6 +1,8 @@
 import { Vec2, Vec3 } from 'cc';
 import { GameConfig } from './GameConfig';
 
+const EXTEND_DIR = new Vec3();
+
 /**
  * A 2D polyline on the XZ plane with rounded corners, parameterised by arc length.
  * `Vec2.y` stores the world Z coordinate.
@@ -99,6 +101,15 @@ export class Path {
         const a = this.pts[i];
         const b = this.pts[i + 1];
         return out.set(a.x + (b.x - a.x) * t, 0, a.y + (b.y - a.y) * t);
+    }
+
+    /** Like posAt, but past either end the path continues in a straight line along the end tangent. */
+    pointAt(s: number, out: Vec3 = new Vec3()): Vec3 {
+        if (s >= 0 && s <= this.length) return this.posAt(s, out);
+        const dir = this.dirAt(s, EXTEND_DIR);
+        const from = s < 0 ? 0 : this.length;
+        this.posAt(from, out);
+        return out.set(out.x + dir.x * (s - from), 0, out.z + dir.z * (s - from));
     }
 
     /** Unit tangent at arc length `s`. */

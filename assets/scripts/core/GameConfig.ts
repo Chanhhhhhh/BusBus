@@ -11,8 +11,12 @@ export const GameConfig = {
         accel: 18,
         decel: 20,
         wheelRadius: 0.24,
-        /** Extra distance kept between two buses queued on the road. */
-        queueGap: 0.7,
+        /**
+         * Front and rear axle distance from the bus centre, as a fraction of the bus length. Both
+         * axles follow the path, so the body cuts corners like a real vehicle instead of swinging
+         * its rear out (a centre-on-path bus sweeps into the row heads when it turns off the lane).
+         */
+        axleOffset: 0.4,
         /** Gap between two buses standing in the same row. */
         rowGap: 0.45,
         /** Reverse-park manoeuvre: the bus drives this far past the slot, then backs in over `parkDuration`. */
@@ -51,6 +55,39 @@ export const GameConfig = {
         },
         /** The bus the hint points at hops on the spot. */
         hintBob: { height: 0.1, period: 0.5 },
+    },
+
+    /** Collision avoidance between buses (game/Traffic.ts). Metres. */
+    traffic: {
+        /** Free distance a bus keeps in front of its bumper. Must stay below `bus.rowGap`. */
+        gap: 0.35,
+        /** Half width of the strip kept free in front of the bumper (narrower than the bus, see Traffic.blockerAt). */
+        noseHalfWidth: 0.4,
+        /**
+         * Half width of a bus footprint (bodies are ~0.64-0.70 wide each side of the centre line).
+         * The lot is tight: with the slots at z -8.85 a 3.2 m bus turning out of a row clears the
+         * parked buses by only a few centimetres.
+         */
+        halfWidth: 0.68,
+        /**
+         * How far ahead a driving bus looks for obstacles and claims its path. Far more than its
+         * braking distance (maxSpeed² / (2 decel) = 3.6): a bus with right of way must claim a
+         * crossing before a bus waiting next to it (e.g. a row head beside the lane) pulls out.
+         */
+        reach: 30,
+        probeStep: 0.3,
+        /** A bus whose way is blocked closer than this counts as waiting (deadlock detection). */
+        heldDistance: 0.5,
+        /** Bisection steps refining where a probe first touches an obstacle. */
+        refineSteps: 5,
+        /** Spacing of the footprints a bus claims along its path, and samples per reverse-park sweep. */
+        claimStep: 0.25,
+        /**
+         * Claimed footprints are this much longer / wider on each side, so a bus waiting beside a
+         * claimed path stands clear of the corners of the bus that will drive through.
+         */
+        claimMargin: 0.1,
+        sweepSamples: 10,
     },
 
     road: {
