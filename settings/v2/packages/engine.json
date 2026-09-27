@@ -36,16 +36,16 @@
             "_value": false
           },
           "rich-text": {
-            "_value": true
+            "_value": false
           },
           "mask": {
-            "_value": true
+            "_value": false
           },
           "graphics": {
-            "_value": true
+            "_value": false
           },
           "ui-skew": {
-            "_value": true
+            "_value": false
           },
           "affine-transform": {
             "_value": true
@@ -54,7 +54,7 @@
             "_value": true
           },
           "particle": {
-            "_value": true
+            "_value": false
           },
           "physics": {
             "_value": false,
@@ -98,13 +98,13 @@
             "_value": false
           },
           "intersection-2d": {
-            "_value": true
+            "_value": false
           },
           "primitive": {
-            "_value": true
+            "_value": false
           },
           "profiler": {
-            "_value": true
+            "_value": false
           },
           "occlusion-query": {
             "_value": false
@@ -116,31 +116,31 @@
             "_value": false
           },
           "particle-2d": {
-            "_value": true
+            "_value": false
           },
           "audio": {
-            "_value": true
+            "_value": false
           },
           "video": {
-            "_value": true
+            "_value": false
           },
           "webview": {
-            "_value": true
+            "_value": false
           },
           "tween": {
             "_value": true
           },
           "websocket": {
-            "_value": true
+            "_value": false
           },
           "websocket-server": {
             "_value": false
           },
           "terrain": {
-            "_value": true
+            "_value": false
           },
           "light-probe": {
-            "_value": true
+            "_value": false
           },
           "tiled-map": {
             "_value": false
@@ -165,10 +165,10 @@
             }
           },
           "dragon-bones": {
-            "_value": true
+            "_value": false
           },
           "marionette": {
-            "_value": true
+            "_value": false
           },
           "procedural-animation": {
             "_value": false
@@ -196,29 +196,12 @@
           "3d",
           "affine-transform",
           "animation",
-          "audio",
           "base",
           "custom-pipeline",
-          "dragon-bones",
           "gfx-webgl",
-          "graphics",
-          "intersection-2d",
-          "light-probe",
-          "marionette",
-          "mask",
-          "particle",
-          "particle-2d",
-          "primitive",
-          "profiler",
-          "rich-text",
           "skeletal-animation",
-          "terrain",
           "tween",
-          "ui",
-          "ui-skew",
-          "video",
-          "websocket",
-          "webview"
+          "ui"
         ],
         "noDeprecatedFeatures": {
           "value": false,
