@@ -103,8 +103,8 @@ interface Block {
  * cycle held back only by a claim ignores the claims of the cycle: whoever is already in the way
  * goes first. If the cycle is made of bodies only (a layout where two lanes overlap), the bus
  * with the most right of way forces its way and a warning is logged.
- * Bodies and running sweeps a bus already touches are ignored, so overlapping buses drive apart
- * instead of freezing.
+ * Bodies, running sweeps and claims a bus already touches are ignored, so overlapping buses drive
+ * apart instead of freezing.
  */
 export class Traffic {
     private readonly pool: Footprint[] = [];
@@ -121,6 +121,7 @@ export class Traffic {
     private readonly promises: Group[] = [];
     private readonly probe = new Footprint();
     private readonly nose = new Footprint();
+    private readonly core = new Footprint();
     private readonly tmpPos = new Vec3();
     private readonly tmpDir = new Vec3();
 
@@ -206,7 +207,15 @@ export class Traffic {
                 this.promises.push(sweep);
             }
         }
-        for (const claim of this.claims) if (!inCycle(claim.owner)) this.promises.push(claim);
+        // A claim that already covers the bus cannot be honoured any more: its owner has to stop for
+        // this body anyway, so the bus goes first instead of waiting (e.g. a full bus turning into
+        // the gate while the road claim of the bus behind it grows over its tail). The body is
+        // shrunk by the claim margin so a bus waiting beside a claimed path still gives way.
+        const m = CFG.claimMargin;
+        const core = this.core.set(body.x, body.z, body.fx, body.fz, body.hl - m, body.hw - m);
+        for (const claim of this.claims) {
+            if (!inCycle(claim.owner) && !claim.hits(core)) this.promises.push(claim);
+        }
     }
 
     private drive(bus: Bus): void {
