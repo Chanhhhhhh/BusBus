@@ -1,4 +1,4 @@
-import { Color, Label, Node, Sprite, SpriteFrame, UIOpacity, UITransform, Vec3, tween } from 'cc';
+import { Color, Font, Label, Node, Sprite, SpriteFrame, UIOpacity, UITransform, Vec3, tween } from 'cc';
 import { GameConfig } from '../core/GameConfig';
 
 const D2R = Math.PI / 180;
@@ -47,7 +47,7 @@ export class FxLayer {
     private readonly labelPool: Node[] = [];
     private readonly tmpColor = new Color();
 
-    constructor(canvas: Node, private readonly frame: SpriteFrame | null) {
+    constructor(canvas: Node, private readonly frame: SpriteFrame | null, private readonly font: Font | null = null) {
         this.node = new Node('FxLayer');
         this.node.layer = canvas.layer;
         // Camera.convertToUINode() needs a UITransform on the target node.
@@ -149,9 +149,14 @@ export class FxLayer {
             node.layer = this.node.layer;
             node.addComponent(UIOpacity);
             const label = node.addComponent(Label);
+            if (this.font) {
+                label.useSystemFont = false;
+                label.font = this.font;
+            } else {
+                label.isBold = true;
+            }
             label.fontSize = FLOAT.fontSize;
             label.lineHeight = FLOAT.fontSize * 1.2;
-            label.isBold = true;
             label.enableOutline = true;
             label.outlineWidth = 4;
             label.outlineColor = new Color(0, 0, 0, 200);

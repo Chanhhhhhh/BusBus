@@ -1,6 +1,6 @@
-import { Node, Tween, Vec3, tween } from 'cc';
+import { Node, TweenEasing, Vec3 } from 'cc';
 import { GameConfig } from '../core/GameConfig';
-import { punchScale } from '../fx/Juice';
+import { AnimService } from '../services/AnimService';
 
 /**
  * The gate barrier: a post plus an arm hinged at the post top (the arm mesh extends along its
@@ -21,7 +21,7 @@ export class Barrier {
         this.isOpen = true;
         const cfg = GameConfig.barrier;
         this.swing(cfg.openAngle, cfg.openDuration, 'backOut');
-        punchScale(this.root, 1, cfg.punch.amount, cfg.punch.duration);
+        AnimService.punchScale(this.root, 1, cfg.punch.amount, cfg.punch.duration);
     }
 
     close(): void {
@@ -31,10 +31,8 @@ export class Barrier {
     }
 
     /** Rotates the arm about its hinge (local X); negative angles lift the tip. */
-    private swing(angle: number, duration: number, easing: 'backOut' | 'bounceOut'): void {
-        if (!this.arm) return;
-        Tween.stopAllByTarget(this.arm);
-        tween(this.arm).to(duration, { eulerAngles: new Vec3(angle, 0, 0) }, { easing }).start();
+    private swing(angle: number, duration: number, easing: TweenEasing): void {
+        if (this.arm) AnimService.rotateTo(this.arm, new Vec3(angle, 0, 0), duration, easing);
     }
 
     private static find(root: Node | null, name: string): Node | null {

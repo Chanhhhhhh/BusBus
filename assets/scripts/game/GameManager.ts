@@ -1,15 +1,15 @@
 import {
-    _decorator, Camera, Color, Component, Material, Node, Prefab, UITransform, Vec2, Vec3, director, instantiate,
+    _decorator, Camera, Color, Component, Material, Node, Prefab, UITransform, Vec2, Vec3, instantiate,
 } from 'cc';
 import { GameConfig } from '../core/GameConfig';
 import { LEVEL_1, validateLevel } from '../core/LevelData';
 import { Path } from '../core/Path';
 import { BusColor, BusSpec, BusState, GameState, LevelDef } from '../core/Types';
 import { FxLayer } from '../fx/FxLayer';
-import { arcTo } from '../fx/Juice';
 import { GameplayView } from '../ui/GameplayView';
 import { LoseView } from '../ui/LoseView';
 import { WinView } from '../ui/WinView';
+import { AnimService } from '../services/AnimService';
 import { Barrier } from './Barrier';
 import { Bus, BusTrip, BusTripListener } from './Bus';
 import { BusStop } from './BusStop';
@@ -187,9 +187,9 @@ export class GameManager extends Component implements BusTripListener {
         return out;
     }
 
-    /** Converts a world anchor into the local space of a canvas node, slightly above the anchor. */
-    private worldToUi(anchor: Vec3, uiNode: Node, out: Vec3): Vec3 {
-        Vec3.add(this.tmpWorld, anchor, HUD_UP);
+    /** Converts a world anchor into the local space of a canvas node, `height` metres above the anchor. */
+    private worldToUi(anchor: Vec3, uiNode: Node, out: Vec3, height = HUD_UP.y): Vec3 {
+        this.tmpWorld.set(anchor.x, anchor.y + height, anchor.z);
         return this.mainCamera.convertToUINode(this.tmpWorld, uiNode, out);
     }
 
@@ -256,11 +256,10 @@ export class GameManager extends Component implements BusTripListener {
 
         this.loseView = instantiate(this.loseViewPrefab).getComponent(LoseView);
         this.loseView.node.setParent(this.canvas, false);
-        this.loseView.onRetry = () => this.restart();
         this.loseView.hide();
 
         // Created last so particles and floating labels draw above the end cards.
-        this.fx = new FxLayer(this.canvas, this.gameplay.fxSprite);
+        this.fx = new FxLayer(this.canvas, this.gameplay.fxSprite, this.gameplay.font);
     }
 
     // ---------------------------------------------------------------- input / dispatch
@@ -423,7 +422,7 @@ export class GameManager extends Component implements BusTripListener {
             passenger.node.setRotationFromEuler(0, 0, 0);
             if (passenger.shadow) passenger.shadow.active = false;
             passenger.sit();
-            arcTo(passenger.node, door, bus.seatPosition(seatIndex), cfg.hopHeight, cfg.hopDuration, () => {
+            AnimService.arcTo(passenger.node, door, bus.seatPosition(seatIndex), cfg.hopHeight, cfg.hopDuration, () => {
                 // Boarding from the +X side: the body dips towards the door.
                 bus.kickSuspension(0, -GameConfig.bus.suspension.boardKick);
                 this.addBoarder(bus, -1);
@@ -521,10 +520,6 @@ export class GameManager extends Component implements BusTripListener {
         this.scheduleOnce(() => this.loseView.show(), GameConfig.ui.resultDelay + GameConfig.ui.loseExtraDelay);
     }
 
-    private restart(): void {
-        const scene = director.getScene();
-        if (scene) director.loadScene(scene.name);
-    }
 
     // ---------------------------------------------------------------- HUD / hint / autoplay
 
@@ -539,7 +534,8 @@ export class GameManager extends Component implements BusTripListener {
         const target = wantHint && this.busesOnRoad() < this.level.roadCapacity ? this.suggestBus() : null;
         this.setHinted(target);
         if (target) {
-            this.gameplay.showTapHint(true, this.worldToUi(target.node.worldPosition, this.gameplay.node, this.tmpUi));
+            this.gameplay.showTapHint(true, this.worldToUi(target.node.worldPosition, this.gameplay.node, this.tmpUi,
+                GameConfig.hint.handHeight));
         } else {
             this.gameplay.showTapHint(false);
         }

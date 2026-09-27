@@ -118,9 +118,16 @@ export const GameConfig = {
     hint: {
         /** Seconds without a valid tap before the tap hint is shown again. */
         idleDelay: 3.5,
+        /** Height above the bus origin (roof) where the fingertip of the hand points. */
+        handHeight: 0.6,
     },
 
     hud: {
+        /** Outline of the ROAD label, matching its pill: green while there is room, red when full. */
+        capacityOutline: {
+            free: { r: 40, g: 105, b: 15, a: 255 },
+            full: { r: 125, g: 15, b: 30, a: 255 },
+        },
         /** Height above a world anchor (sign, bus) where HUD widgets are placed. */
         anchorHeight: 1.2,
         /**
@@ -148,7 +155,7 @@ export const GameConfig = {
         punch: { amount: 0.18, duration: 0.4 },
     },
 
-    /** Defaults of the tween helpers in fx/Juice.ts. */
+    /** Defaults of the juice animations in services/AnimService.ts. */
     fx: {
         punch: { amount: 0.15, duration: 0.28, attackRatio: 0.35, squashFactor: 0.6 },
         popDuration: 0.3,
@@ -180,6 +187,18 @@ export const GameConfig = {
         resultDelay: 0.8,
         loseExtraDelay: 0.5,
         toastDuration: 1.1,
+        /**
+         * Every button (BaseView + AnimService): an idle scale pulse that never stops while the view
+         * is shown. Press feedback is the cc.Button COLOR transition (tint), which leaves the scale alone.
+         */
+        button: {
+            /** Idle pulse: uniform scale between `pulseMax` and `pulseMin`, `pulseHalf` seconds each way. */
+            pulseMax: 1.08,
+            pulseMin: 0.96,
+            pulseHalf: 0.45,
+            /** Delay before the pulse starts when the button appears. */
+            startDelay: 0.4,
+        },
         loseToastDuration: 1.4,
         text: {
             level: 'LEVEL {n}',
@@ -190,8 +209,16 @@ export const GameConfig = {
             busFull: 'FULL!',
         },
         anim: {
-            hintPulseScale: 1.18,
-            hintPulseDuration: 0.45,
+            /** Hand tap loop: press down to this scale, release, then rest. */
+            hintPressScale: 0.82,
+            hintPressIn: 0.14,
+            hintPressOut: 0.28,
+            hintPressRest: 0.35,
+            /** Result-card icon pops in this long after the panel starts. */
+            iconDelay: 0.2,
+            /** Slow "breathing" of the instruction bar: peak scale and seconds per half cycle. */
+            hintBreathScale: 1.04,
+            hintBreathHalf: 0.9,
             toastStartScale: 0.6,
             toastIn: 0.18,
             toastOut: 0.15,
@@ -200,9 +227,7 @@ export const GameConfig = {
             counterBumpOut: 0.18,
             panelStartScale: 0.6,
             panelIn: 0.4,
-            ctaPulseScale: 1.08,
-            ctaPulseDuration: 0.5,
-            ctaPulseDelay: 0.4,
+
         },
     },
 };

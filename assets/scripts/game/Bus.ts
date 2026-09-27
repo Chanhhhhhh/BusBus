@@ -2,7 +2,7 @@ import { _decorator, Component, Material, MeshRenderer, Node, Tween, Vec3, math,
 import { GameConfig } from '../core/GameConfig';
 import { Path } from '../core/Path';
 import { BusColor, BusState } from '../core/Types';
-import { punchScale, wobble } from '../fx/Juice';
+import { AnimService } from '../services/AnimService';
 
 const { ccclass, property } = _decorator;
 
@@ -249,13 +249,10 @@ export class Bus extends Component {
         const cfg = GameConfig.bus;
         this.lid.active = true;
         const rest = this.lid.position.clone();
-        this.lid.setPosition(rest.x, rest.y + cfg.lidDropHeight, rest.z);
-        tween(this.lid)
-            .to(cfg.lidDropDuration, { position: rest }, { easing: 'bounceOut' })
-            // The passengers are boxed in: their heads would poke through the roof otherwise.
-            .call(() => { this.seatRoot.active = false; })
-            .start();
-        punchScale(this.body, 1, cfg.lidPunch.amount, cfg.lidPunch.duration);
+        const from = new Vec3(rest.x, rest.y + cfg.lidDropHeight, rest.z);
+        // Once the lid lands the passengers are boxed in: their heads would poke through the roof.
+        AnimService.dropTo(this.lid, from, rest, cfg.lidDropDuration, 'bounceOut', () => { this.seatRoot.active = false; });
+        AnimService.punchScale(this.body, 1, cfg.lidPunch.amount, cfg.lidPunch.duration);
         this.kickSuspension(cfg.suspension.lidKick, 0);
     }
 
@@ -294,7 +291,7 @@ export class Bus extends Component {
                 this.parking = false;
                 this.node.setPosition(slotPos);
                 this.node.setRotationFromEuler(0, 0, 0);
-                punchScale(this.body, 1, GameConfig.bus.parkPunch.amount, GameConfig.bus.parkPunch.duration);
+                AnimService.punchScale(this.body, 1, GameConfig.bus.parkPunch.amount, GameConfig.bus.parkPunch.duration);
                 onDone();
             })
             .start();
@@ -308,18 +305,18 @@ export class Bus extends Component {
     }
 
     tapFeedback(): void {
-        punchScale(this.body, 1, GameConfig.bus.tapPunch.amount, GameConfig.bus.tapPunch.duration);
+        AnimService.punchScale(this.body, 1, GameConfig.bus.tapPunch.amount, GameConfig.bus.tapPunch.duration);
     }
 
     /** "You cannot send this bus": standing buses wobble, buses out on a trip just twitch. */
     rejectFeedback(): void {
         const standing = (this.state === BusState.InRow || this.state === BusState.Parked) && !this.moving;
         if (standing) this.crashFeedback();
-        else punchScale(this.body, 1, GameConfig.bus.parkPunch.amount, GameConfig.bus.parkPunch.duration);
+        else AnimService.punchScale(this.body, 1, GameConfig.bus.parkPunch.amount, GameConfig.bus.parkPunch.duration);
     }
 
     /** Yaw wobble of the whole bus; only for a bus that is not being steered along a path. */
     crashFeedback(): void {
-        wobble(this.node, GameConfig.bus.rejectWobble.degrees, GameConfig.bus.rejectWobble.duration);
+        AnimService.wobble(this.node, GameConfig.bus.rejectWobble.degrees, GameConfig.bus.rejectWobble.duration);
     }
 }

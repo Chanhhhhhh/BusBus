@@ -1,7 +1,7 @@
 import { _decorator, Component, Vec3 } from 'cc';
 import { GameConfig } from '../core/GameConfig';
 import { BusColor } from '../core/Types';
-import { popIn } from '../fx/Juice';
+import { AnimService } from '../services/AnimService';
 import { Passenger } from './Passenger';
 
 const { ccclass, property } = _decorator;
@@ -89,7 +89,7 @@ export class BusStop extends Component {
             p.face(this.faceDir);
             p.idle();
             const scale = GameConfig.passenger.scale;
-            if (animate) popIn(p.node, scale, GameConfig.passenger.spawnPopDuration);
+            if (animate) AnimService.popIn(p.node, scale, GameConfig.passenger.spawnPopDuration);
             else p.node.setScale(scale, scale, scale);
             this.visible.push(p);
         }

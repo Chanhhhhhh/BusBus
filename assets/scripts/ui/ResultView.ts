@@ -1,41 +1,26 @@
-import { _decorator, Button, Component, Label, Node, Tween, Vec3, tween } from 'cc';
+import { _decorator, Label, Node } from 'cc';
 import { GameConfig } from '../core/GameConfig';
+import { AnimService } from '../services/AnimService';
+import { BaseView } from './BaseView';
 
 const { ccclass, property } = _decorator;
 
-/** Shared behaviour of the win and lose end cards: panel pop-in and a pulsing CTA button. */
+/**
+ * Shared behaviour of the win and lose end cards: panel pop-in and icon pop. Each card has a single
+ * button, bound by the subclass (CONTINUE on the win card, TRY AGAIN on the lose card).
+ */
 @ccclass('ResultView')
-export class ResultView extends Component {
+export class ResultView extends BaseView {
     @property(Node) panel: Node = null;
+    /** Optional illustration (the tick on the win card) that pops in after the panel. */
+    @property(Node) icon: Node = null;
     @property(Label) titleLabel: Label = null;
     @property(Label) subtitleLabel: Label = null;
-    @property(Button) ctaButton: Button = null;
-
-    onCta: (() => void) | null = null;
-
-    onLoad(): void {
-        if (this.ctaButton) this.ctaButton.node.on(Button.EventType.CLICK, () => this.onCta && this.onCta(), this);
-    }
-
     show(): void {
         const anim = GameConfig.ui.anim;
         this.node.active = true;
-        if (this.panel) {
-            Tween.stopAllByTarget(this.panel);
-            this.panel.setScale(anim.panelStartScale, anim.panelStartScale, 1);
-            tween(this.panel).to(anim.panelIn, { scale: new Vec3(1, 1, 1) }, { easing: 'backOut' }).start();
-        }
-        if (this.ctaButton) {
-            const btn = this.ctaButton.node;
-            Tween.stopAllByTarget(btn);
-            tween(btn)
-                .delay(anim.ctaPulseDelay)
-                .to(anim.ctaPulseDuration, { scale: new Vec3(anim.ctaPulseScale, anim.ctaPulseScale, 1) }, { easing: 'sineInOut' })
-                .to(anim.ctaPulseDuration, { scale: new Vec3(1, 1, 1) }, { easing: 'sineInOut' })
-                .union()
-                .repeatForever()
-                .start();
-        }
+        if (this.panel) AnimService.panelIn(this.panel);
+        if (this.icon) AnimService.popIn(this.icon, 1, anim.panelIn, anim.iconDelay, 0);
     }
 
     hide(): void {
