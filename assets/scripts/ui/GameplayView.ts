@@ -1,5 +1,6 @@
 import {
     _decorator, Button, Color, Label, Layers, MeshRenderer, Node, RenderRoot2D, Sprite, SpriteFrame, TTFFont, Vec3,
+    instantiate,
 } from 'cc';
 import { GameConfig } from '../core/GameConfig';
 import { AnimService } from '../services/AnimService';
@@ -11,8 +12,9 @@ const TEXT = GameConfig.ui.text;
 const SIGN_COUNTER = GameConfig.hud.signCounter;
 
 /**
- * HUD shown while playing. The two counters are world-space widgets: at runtime they are moved
- * off the canvas onto RenderRoot2D nodes parented to the sign meshes, so the numbers are printed
+ * HUD shown while playing. The counters are world-space widgets: at runtime they are moved off
+ * the canvas onto RenderRoot2D nodes parented to the sign meshes (one passenger counter per bus
+ * stop, cloned from `passengerCounter`, plus the bus counter on the gate sign), so the numbers are printed
  * on the sign boards and drawn by the main camera. The tap hint is still a canvas widget
  * positioned by GameManager from world positions; everything else is static UI that can be
  * re-skinned in the prefab.
@@ -48,11 +50,12 @@ export class GameplayView extends BaseView {
 
     private hintVisible = false;
     private lastOnRoad = -1;
-    private lastPassengers = -1;
     private lastBuses = -1;
 
-    /** RenderRoot2D roots parented to the sign meshes (null until attached). */
-    private passengerRoot: Node | null = null;
+    /** One passenger counter per bus stop: widget, its label and the last value shown (-1 = none). */
+    private stopCounters: { widget: Node; label: Label; last: number }[] = [];
+    /** RenderRoot2D roots parented to the sign meshes (empty / null until attached). */
+    private signRoots: Node[] = [];
     private busRoot: Node | null = null;
 
     onLoad(): void {
@@ -64,9 +67,10 @@ export class GameplayView extends BaseView {
 
     protected onDestroy(): void {
         super.onDestroy();
-        if (this.passengerRoot?.isValid) this.passengerRoot.destroy();
+        for (const root of this.signRoots) if (root.isValid) root.destroy();
         if (this.busRoot?.isValid) this.busRoot.destroy();
-        this.passengerRoot = this.busRoot = null;
+        this.signRoots = [];
+        this.busRoot = null;
     }
 
     /**
@@ -76,8 +80,15 @@ export class GameplayView extends BaseView {
      * transform, so nothing has to be repositioned per frame. Layer DEFAULT so the main camera
      * draws them.
      */
-    attachSignCounters(stopSign: Node, gateSign: Node): void {
-        if (!this.passengerRoot) this.passengerRoot = GameplayView.mountOnSign('PassengerCounterRoot', stopSign, this.passengerCounter);
+    attachSignCounters(stopSigns: readonly Node[], gateSign: Node): void {
+        if (this.signRoots.length === 0 && this.passengerCounter && this.passengerLabel) {
+            stopSigns.forEach((sign, i) => {
+                const widget = i === 0 ? this.passengerCounter : instantiate(this.passengerCounter);
+                const label = i === 0 ? this.passengerLabel : widget.getComponentInChildren(Label);
+                this.signRoots.push(GameplayView.mountOnSign(`PassengerCounterRoot${i}`, sign, widget));
+                this.stopCounters.push({ widget, label, last: -1 });
+            });
+        }
         if (!this.busRoot) this.busRoot = GameplayView.mountOnSign('BusCounterRoot', gateSign, this.busCounter);
     }
 
@@ -126,12 +137,20 @@ export class GameplayView extends BaseView {
         return this.toastNode ?? this.toastLabel?.node ?? null;
     }
 
-    setCounters(passengers: number, buses: number): void {
-        if (this.passengerLabel && passengers !== this.lastPassengers) {
-            this.passengerLabel.string = `${passengers}`;
-            if (this.lastPassengers >= 0 && this.passengerCounter) AnimService.bump(this.passengerCounter);
-            this.lastPassengers = passengers;
+    /** `passengers[i]` = passengers waiting at stop i (same order as the signs given to attachSignCounters). */
+    setCounters(passengers: readonly number[], buses: number): void {
+        // Not attached to any sign: the canvas counter shows the total.
+        const values = this.signRoots.length > 0 ? passengers : [passengers.reduce((a, b) => a + b, 0)];
+        if (this.stopCounters.length === 0 && this.passengerCounter && this.passengerLabel) {
+            this.stopCounters.push({ widget: this.passengerCounter, label: this.passengerLabel, last: -1 });
         }
+        this.stopCounters.forEach((counter, i) => {
+            const value = values[i] ?? 0;
+            if (value === counter.last) return;
+            counter.label.string = `${value}`;
+            if (counter.last >= 0) AnimService.bump(counter.widget);
+            counter.last = value;
+        });
         if (this.busLabel && buses !== this.lastBuses) {
             this.busLabel.string = `${buses}`;
             if (this.lastBuses >= 0 && this.busCounter) AnimService.bump(this.busCounter);

@@ -20,31 +20,34 @@ function queue(segments: [BusColor, number][]): BusColor[] {
 }
 
 /**
- * Level 1. Designed so that, apart from two identical G4 buses, only one bus of the colour
- * at the head of the queue is ever available: any matching tap keeps the level solvable.
- * 12 trips, at most 2 buses parked at once, 54 passengers.
+ * Level 1. Two bus stops: a bus boards at the first stop, then at the second one, and only
+ * parks if it is still not full. Following the hint wins in 9 trips; tapping random buses that
+ * match one of the two queue heads wins ~87 % of the time (sequential model, 4 parking slots).
+ * 54 passengers: 28 at the first stop, 26 at the second.
  */
 export const LEVEL_1: LevelDef = {
     id: 1,
-    roadCapacity: 2,
+    roadCapacity: 4,
     rows: [
         [bus(Y, 6), bus(B, 10), bus(P, 4)],
         [bus(R, 4), bus(P, 6), bus(Y, 4)],
         [bus(G, 6), bus(R, 10)],
         [bus(G, 4)],
     ],
-    passengers: queue([
-        [Y, 3], [R, 4], [G, 6], [Y, 3], [P, 6], [B, 5], [G, 4], [P, 4], [Y, 4],
-        [R, 6], [B, 5], [R, 4],
-    ]),
+    stops: [
+        queue([[Y, 3], [G, 6], [P, 6], [G, 4], [Y, 4], [B, 5]]),
+        queue([[R, 4], [Y, 3], [B, 5], [P, 4], [R, 6], [R, 4]]),
+    ],
 };
 
 /** Sanity check used at start-up: every seat must have exactly one passenger. */
 export function validateLevel(level: LevelDef): string | null {
     let seats = 0;
     for (const row of level.rows) for (const spec of row) seats += spec.seats;
-    if (seats !== level.passengers.length) {
-        return `Level ${level.id}: ${seats} seats but ${level.passengers.length} passengers`;
+    let passengers = 0;
+    for (const queue of level.stops) passengers += queue.length;
+    if (seats !== passengers) {
+        return `Level ${level.id}: ${seats} seats but ${passengers} passengers`;
     }
     return null;
 }

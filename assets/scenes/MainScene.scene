@@ -326,6 +326,12 @@
       },
       {
         "__id__": 75
+      },
+      {
+        "__id__": 124
+      },
+      {
+        "__id__": 132
       }
     ],
     "_active": true,
@@ -1702,10 +1708,10 @@
     ],
     "value": {
       "__type__": "cc.Quat",
-      "x": 0,
-      "y": 0.17364817766693033,
-      "z": 0,
-      "w": 0.984807753012208
+      "x": -0.24225998277217517,
+      "y": 0.33995272838319696,
+      "z": 0.09109005903503442,
+      "w": -0.9041265643465187
     }
   },
   {
@@ -1718,9 +1724,9 @@
     ],
     "value": {
       "__type__": "cc.Vec3",
-      "x": 0,
-      "y": 20,
-      "z": 0
+      "x": 23.4764,
+      "y": -37.1798,
+      "z": -19.234
     }
   },
   {
@@ -1813,10 +1819,10 @@
     ],
     "value": {
       "__type__": "cc.Quat",
-      "x": 0,
-      "y": -0.17364817766693033,
-      "z": 0,
-      "w": 0.984807753012208
+      "x": -0.24225998277217517,
+      "y": 0.33995272838319696,
+      "z": 0.09109005903503442,
+      "w": -0.9041265643465187
     }
   },
   {
@@ -1829,9 +1835,9 @@
     ],
     "value": {
       "__type__": "cc.Vec3",
-      "x": 0,
-      "y": -20,
-      "z": 0
+      "x": 23.4764,
+      "y": -37.1798,
+      "z": -19.234
     }
   },
   {
@@ -3526,9 +3532,14 @@
     "roadWaypoints": {
       "__id__": 18
     },
-    "busStop": {
-      "__id__": 76
-    },
+    "busStops": [
+      {
+        "__id__": 76
+      },
+      {
+        "__id__": 133
+      }
+    ],
     "slotsRoot": {
       "__id__": 78
     },
@@ -3550,9 +3561,14 @@
     "barrier": {
       "__id__": 48
     },
-    "signStop": {
-      "__id__": 56
-    },
+    "signStops": [
+      {
+        "__id__": 56
+      },
+      {
+        "__id__": 124
+      }
+    ],
     "signGate": {
       "__id__": 64
     },
@@ -3593,6 +3609,9 @@
       },
       {
         "__id__": 64
+      },
+      {
+        "__id__": 124
       }
     ]
   },
@@ -3771,5 +3790,185 @@
   {
     "__type__": "cc.PostSettingsInfo",
     "_toneMappingType": 0
+  },
+  {
+    "__type__": "cc.Node",
+    "_objFlags": 0,
+    "_parent": {
+      "__id__": 8
+    },
+    "_prefab": {
+      "__id__": 125
+    },
+    "__editorExtras__": {}
+  },
+  {
+    "__type__": "cc.PrefabInfo",
+    "root": {
+      "__id__": 124
+    },
+    "asset": {
+      "__uuid__": "ba011a7f-e005-4555-b28f-178829c1b2b5",
+      "__expectedType__": "cc.Prefab"
+    },
+    "fileId": "ffsHkewyVXoqeDKCwjNFVh",
+    "instance": {
+      "__id__": 126
+    },
+    "targetOverrides": null,
+    "nestedPrefabInstanceRoots": null
+  },
+  {
+    "__type__": "cc.PrefabInstance",
+    "fileId": "Lr30Nx1fnp0C5KYAVMJy2j",
+    "prefabRootNode": null,
+    "mountedChildren": [],
+    "mountedComponents": [],
+    "propertyOverrides": [
+      {
+        "__id__": 128
+      },
+      {
+        "__id__": 129
+      },
+      {
+        "__id__": 130
+      },
+      {
+        "__id__": 131
+      }
+    ],
+    "removedComponents": []
+  },
+  {
+    "__type__": "cc.TargetInfo",
+    "localID": [
+      "ffsHkewyVXoqeDKCwjNFVh"
+    ]
+  },
+  {
+    "__type__": "CCPropertyOverrideInfo",
+    "targetInfo": {
+      "__id__": 127
+    },
+    "propertyPath": [
+      "_name"
+    ],
+    "value": "SignStop2"
+  },
+  {
+    "__type__": "CCPropertyOverrideInfo",
+    "targetInfo": {
+      "__id__": 127
+    },
+    "propertyPath": [
+      "_lpos"
+    ],
+    "value": {
+      "__type__": "cc.Vec3",
+      "x": -6.998701371024572,
+      "y": 0,
+      "z": 5.607993258758412
+    }
+  },
+  {
+    "__type__": "CCPropertyOverrideInfo",
+    "targetInfo": {
+      "__id__": 127
+    },
+    "propertyPath": [
+      "_lrot"
+    ],
+    "value": {
+      "__type__": "cc.Quat",
+      "x": -0.24225998277217517,
+      "y": 0.33995272838319696,
+      "z": 0.09109005903503442,
+      "w": -0.9041265643465187
+    }
+  },
+  {
+    "__type__": "CCPropertyOverrideInfo",
+    "targetInfo": {
+      "__id__": 127
+    },
+    "propertyPath": [
+      "_euler"
+    ],
+    "value": {
+      "__type__": "cc.Vec3",
+      "x": 23.4764,
+      "y": -37.1798,
+      "z": -19.234
+    }
+  },
+  {
+    "__type__": "cc.Node",
+    "_name": "BusStop2",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "_parent": {
+      "__id__": 8
+    },
+    "_children": [],
+    "_active": true,
+    "_components": [
+      {
+        "__id__": 133
+      }
+    ],
+    "_prefab": null,
+    "_lpos": {
+      "__type__": "cc.Vec3",
+      "x": -6.01770539750405,
+      "y": 0,
+      "z": 6.313434184659741
+    },
+    "_lrot": {
+      "__type__": "cc.Quat",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "_lscale": {
+      "__type__": "cc.Vec3",
+      "x": 1,
+      "y": 1,
+      "z": 1
+    },
+    "_mobility": 0,
+    "_layer": 1073741824,
+    "_euler": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_id": "Cbwxc182eDWTIEPzvZAY/g"
+  },
+  {
+    "__type__": "d4418CerJlF5LFAsKhLspK1",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 132
+    },
+    "_enabled": true,
+    "__prefab": null,
+    "queueDir": {
+      "__type__": "cc.Vec3",
+      "x": -0.19553906282959002,
+      "y": 0,
+      "z": 0.9806959135775604
+    },
+    "faceDir": {
+      "__type__": "cc.Vec3",
+      "x": 0.9806959135775604,
+      "y": 0,
+      "z": 0.19553906282959002
+    },
+    "_id": "QYSGvhecqzT37gmAW2XMIv"
   }
 ]

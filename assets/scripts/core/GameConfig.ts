@@ -138,6 +138,14 @@ export const GameConfig = {
             offset: { x: 0, y: 0.555, z: 0.11 },
             scale: 0.0058,
         },
+        /**
+         * The gate sign (buses left) is re-coloured so it cannot be mistaken for a bus-stop sign
+         * (passengers left): its UVs are shifted along Asset_Texture, a strip of colour columns
+         * 0.1 wide, so the light-blue frame samples the orange column (same orange as the barrier).
+         */
+        gateSign: {
+            uvShift: 0.7,
+        },
     },
 
     autoplay: {

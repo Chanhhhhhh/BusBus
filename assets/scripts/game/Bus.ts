@@ -11,13 +11,13 @@ export interface BusTrip {
     path: Path;
     /** Arc length where the bus enters the road loop (-1 if the trip does not use the road). */
     roadStartS: number;
-    /** Arc length of the bus stop (-1 if the trip has no stop). */
-    stopS: number;
+    /** Arc lengths of the bus stops on the trip, in driving order (empty if the trip has no stop). */
+    stops: number[];
 }
 
 export interface BusTripListener {
-    /** Called when the bus reaches the stop. Return true to make it wait there. */
-    onReachStop(bus: Bus): boolean;
+    /** Called when the bus reaches stop `index` of its trip. Return true to make it wait there. */
+    onReachStop(bus: Bus, index: number): boolean;
     /** Called when the bus reaches the end of its trip path. */
     onTripEnd(bus: Bus): void;
 }
@@ -65,7 +65,8 @@ export class Bus extends Component {
     private moving = false;
     /** True while the reverse-park tween steers the node (the suspension then reads the yaw rate). */
     private parking = false;
-    private stopPending = false;
+    /** Index in `trip.stops` of the next stop ahead (== stops.length once all are passed). */
+    private nextStop = 0;
     private wheelAngle = 0;
     private readonly tmpPos = new Vec3();
     private readonly tmpDir = new Vec3();
@@ -89,6 +90,8 @@ export class Bus extends Component {
     get isMoving(): boolean { return this.moving; }
     get currentTrip(): BusTrip | null { return this.trip; }
     get progress(): number { return this.s; }
+    /** Index in the current trip's `stops` of the next stop ahead. */
+    get nextStopIndex(): number { return this.nextStop; }
 
     /** Distance travelled along the road loop; negative while still driving towards the entry. */
     get roadS(): number {
@@ -109,7 +112,7 @@ export class Bus extends Component {
         this.listener = listener;
         this.s = 0;
         this.maxS = Infinity;
-        this.stopPending = trip.stopS >= 0;
+        this.nextStop = 0;
         this.moving = true;
         this.place(0);
     }
@@ -129,7 +132,8 @@ export class Bus extends Component {
         const path = this.trip.path;
 
         let target = path.length;
-        if (this.stopPending) target = Math.min(target, this.trip.stopS);
+        const stops = this.trip.stops;
+        if (this.nextStop < stops.length) target = Math.min(target, stops[this.nextStop]);
         target = Math.min(target, this.maxS);
 
         const dist = Math.max(0, target - this.s);
@@ -141,9 +145,9 @@ export class Bus extends Component {
         this.s = Math.min(target, this.s + this.speed * dt);
         this.place(this.s);
 
-        if (this.stopPending && this.s >= this.trip.stopS - 1e-3) {
-            this.stopPending = false;
-            if (this.listener && this.listener.onReachStop(this)) {
+        if (this.nextStop < stops.length && this.s >= stops[this.nextStop] - 1e-3) {
+            const index = this.nextStop++;
+            if (this.listener && this.listener.onReachStop(this, index)) {
                 this.moving = false;
                 this.speed = 0;
                 return;

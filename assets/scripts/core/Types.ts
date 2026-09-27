@@ -21,8 +21,11 @@ export interface LevelDef {
     roadCapacity: number;
     /** Bus rows, head of the row first. Only the head can be dispatched. */
     rows: BusSpec[][];
-    /** Passenger queue, head first. Must contain exactly as many entries as there are seats. */
-    passengers: BusColor[];
+    /**
+     * Passenger queue of each bus stop, in the order the buses reach the stops, head first.
+     * Together they must contain exactly as many passengers as there are seats.
+     */
+    stops: BusColor[][];
 }
 
 export enum BusState {

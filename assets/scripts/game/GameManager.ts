@@ -1,5 +1,5 @@
 import {
-    _decorator, Camera, Color, Component, Material, Node, Prefab, UITransform, Vec2, Vec3, instantiate,
+    _decorator, Camera, Color, Component, Material, MeshRenderer, Node, Prefab, UITransform, Vec2, Vec3, Vec4, instantiate,
 } from 'cc';
 import { GameConfig } from '../core/GameConfig';
 import { LEVEL_1, validateLevel } from '../core/LevelData';
@@ -30,7 +30,7 @@ const FLASH_TAP = new Color(255, 255, 255, GameConfig.fx.flashAlpha.tap);
 const FLASH_FULL = new Color(255, 255, 255, GameConfig.fx.flashAlpha.full);
 
 /**
- * Owns the level: spawns rows, routes buses over the road loop, runs boarding at the stop,
+ * Owns the level: spawns rows, routes buses over the road loop, runs boarding at the stops,
  * enforces road capacity / parking slots and drives the HUD and end cards.
  */
 @ccclass('GameManager')
@@ -48,7 +48,8 @@ export class GameManager extends Component implements BusTripListener {
 
     /** Children = control points of the road centreline, entry first (Catmull-Rom spline). */
     @property(Node) roadWaypoints: Node = null;
-    @property(BusStop) busStop: BusStop = null;
+    /** Passenger queues, in the order the buses reach them on the road (matches `LevelDef.stops`). */
+    @property([BusStop]) busStops: BusStop[] = [];
     /** Children = parking slots, screen-left first (the first free one is used). */
     @property(Node) slotsRoot: Node = null;
     /** Children = front bumper of each bus row; rows face +Z. */
@@ -62,7 +63,9 @@ export class GameManager extends Component implements BusTripListener {
     /** Waypoints from the road exit to the arrival lane in front of the slots. */
     @property(Node) returnPath: Node = null;
     @property(Node) barrier: Node = null;
-    @property(Node) signStop: Node = null;
+    /** Sign next to each bus stop (same order as `busStops`): shows how many passengers wait there. */
+    @property([Node]) signStops: Node[] = [];
+    /** Sign by the gate: shows how many buses are left. */
     @property(Node) signGate: Node = null;
     /** Parent for everything spawned at runtime. */
     @property(Node) worldRoot: Node = null;
@@ -86,7 +89,8 @@ export class GameManager extends Component implements BusTripListener {
     private roadPoints: Vec2[] = [];
     private roadEntry = new Vec2();
     private roadExit = new Vec2();
-    private stopPoint = new Vec3();
+    /** Point on the road centreline next to each bus stop. */
+    private stopPoints: Vec3[] = [];
 
     private gameplay: GameplayView = null;
     private winView: WinView = null;
@@ -131,7 +135,10 @@ export class GameManager extends Component implements BusTripListener {
         }
         this.spawnRows();
         this.slots = this.slotsRoot.children.map(() => null);
-        this.busStop.init(this.level.passengers, (color) => this.spawnPassenger(color));
+        if (this.level.stops.length !== this.busStops.length) {
+            console.error(`Level ${this.level.id} has ${this.level.stops.length} passenger queues but the scene has ${this.busStops.length} bus stops`);
+        }
+        this.busStops.forEach((stop, i) => stop.init(this.level.stops[i] ?? [], (color) => this.spawnPassenger(color)));
         this.setupUi();
 
         this.tapInput.getTargets = () => this.buses;
@@ -156,8 +163,14 @@ export class GameManager extends Component implements BusTripListener {
         this.roadExit.set(this.roadPoints[this.roadPoints.length - 1]);
 
         const road = new Path(this.roadPoints, 0);
-        const head = this.busStop.node.worldPosition;
-        road.posAt(road.closestS(head.x, head.z), this.stopPoint);
+        let lastS = -Infinity;
+        this.stopPoints = this.busStops.map((stop) => {
+            const head = stop.node.worldPosition;
+            const s = road.closestS(head.x, head.z);
+            if (s < lastS) console.error(`Bus stop ${stop.node.name} is listed after a stop further down the road`);
+            lastS = s;
+            return road.posAt(s, new Vec3());
+        });
     }
 
     private spawnRows(): void {
@@ -203,7 +216,7 @@ export class GameManager extends Component implements BusTripListener {
         bus.startTrip({
             path: new Path(points, GameConfig.road.cornerRadius, GameConfig.road.cornerSubdivisions),
             roadStartS: -1,
-            stopS: -1,
+            stops: [],
         }, listener);
     }
 
@@ -249,7 +262,10 @@ export class GameManager extends Component implements BusTripListener {
         this.gameplay = instantiate(this.gameplayViewPrefab).getComponent(GameplayView);
         this.gameplay.node.setParent(this.canvas, false);
         this.gameplay.setLevel(this.level.id);
-        if (this.signStop && this.signGate) this.gameplay.attachSignCounters(this.signStop, this.signGate);
+        if (this.signGate) {
+            GameManager.shiftSignColors(this.signGate, GameConfig.hud.gateSign.uvShift);
+            this.gameplay.attachSignCounters(this.signStops, this.signGate);
+        }
 
         this.winView = instantiate(this.winViewPrefab).getComponent(WinView);
         this.winView.node.setParent(this.canvas, false);
@@ -261,6 +277,12 @@ export class GameManager extends Component implements BusTripListener {
 
         // Created last so particles and floating labels draw above the end cards.
         this.fx = new FxLayer(this.canvas, this.gameplay.fxSprite, this.gameplay.starSprite, this.gameplay.font);
+    }
+
+    /** Re-colours a sign by shifting its UVs over the colour-strip atlas (own material instance). */
+    private static shiftSignColors(sign: Node, uShift: number): void {
+        const material = sign.getComponentInChildren(MeshRenderer)?.getMaterialInstance(0);
+        if (material) material.setProperty('tilingOffset', new Vec4(1, 1, uShift, 0));
     }
 
     // ---------------------------------------------------------------- input / dispatch
@@ -315,7 +337,7 @@ export class GameManager extends Component implements BusTripListener {
         const trip: BusTrip = {
             path,
             roadStartS: path.closestS(this.roadEntry.x, this.roadEntry.y),
-            stopS: path.closestS(this.stopPoint.x, this.stopPoint.z),
+            stops: this.stopPoints.map((p) => path.closestS(p.x, p.z)),
         };
         bus.state = BusState.OnRoad;
         bus.startTrip(trip, this);
@@ -374,20 +396,21 @@ export class GameManager extends Component implements BusTripListener {
 
     // ---------------------------------------------------------------- BusTripListener
 
-    onReachStop(bus: Bus): boolean {
-        if (bus.isFull || this.busStop.peek() !== bus.color) return false;
+    onReachStop(bus: Bus, index: number): boolean {
+        const stop = this.busStops[index];
+        if (!stop || bus.isFull || stop.peek() !== bus.color) return false;
         bus.state = BusState.Boarding;
-        this.boardNext(bus);
+        this.boardNext(bus, stop);
         return true;
     }
 
-    private boardNext(bus: Bus): void {
+    private boardNext(bus: Bus, stop: BusStop): void {
         if (this.state !== GameState.Playing) return;
-        if (!bus.isFull && this.busStop.peek() === bus.color) {
-            const passenger = this.busStop.takeHead();
+        if (!bus.isFull && stop.peek() === bus.color) {
+            const passenger = stop.takeHead();
             if (passenger) {
                 this.boardPassenger(bus, passenger, bus.takeSeat());
-                this.scheduleOnce(() => this.boardNext(bus), GameConfig.boarding.interval);
+                this.scheduleOnce(() => this.boardNext(bus, stop), GameConfig.boarding.interval);
                 return;
             }
         }
@@ -536,7 +559,7 @@ export class GameManager extends Component implements BusTripListener {
     private updateHud(dt: number): void {
         if (!this.gameplay) return;
         this.gameplay.setCapacity(this.busesOnRoad(), this.level.roadCapacity);
-        this.gameplay.setCounters(this.busStop.remaining, this.busesLeft);
+        this.gameplay.setCounters(this.busStops.map((stop) => stop.remaining), this.busesLeft);
 
         if (this.state !== GameState.Playing) return;
         this.idleTimer += dt;
@@ -559,28 +582,44 @@ export class GameManager extends Component implements BusTripListener {
     }
 
     /**
-     * The bus a player should tap next: dispatchable and matching the queue head. Parked buses
-     * come first (they free a slot), then the row head whose seat count best fits the run of
-     * same-coloured passengers.
+     * The bus a player should tap next: dispatchable and matching the head of a queue that no bus
+     * on the road is already heading for. Parked buses come first (they free a slot), then the row
+     * head whose free seats best fit the run of same-coloured passengers at that head.
      */
     private suggestBus(): Bus | null {
-        const color = this.busStop.peek();
-        if (color === null) return null;
-        // A matching bus already driving towards the stop will serve the head: no hint needed.
-        if (this.buses.some((b) => b.color === color && this.isInboundToStop(b))) return null;
-        const run = this.busStop.headRunLength();
-        const candidates = this.buses.filter((b) => b.color === color && this.canDispatch(b));
+        const runs = new Map<BusColor, number>();
+        this.busStops.forEach((stop, i) => {
+            const color = stop.peek();
+            if (color === null) return;
+            // A matching bus already driving towards this stop will serve its head: no hint needed.
+            if (this.buses.some((b) => b.color === color && this.isInboundToStop(b, i))) return;
+            runs.set(color, Math.max(runs.get(color) ?? 0, stop.headRunLength()));
+        });
+        const candidates = this.buses.filter((b) => runs.has(b.color) && this.canDispatch(b));
         candidates.sort((a, b) => {
             const parkedFirst = Number(b.state === BusState.Parked) - Number(a.state === BusState.Parked);
-            return parkedFirst || Math.abs(a.freeSeats - run) - Math.abs(b.freeSeats - run);
+            return parkedFirst || Math.abs(a.freeSeats - runs.get(a.color)) - Math.abs(b.freeSeats - runs.get(b.color));
         });
         return candidates.length ? candidates[0] : null;
     }
 
-    /** True while a bus with free seats is on the road and has not reached the stop yet. */
-    private isInboundToStop(bus: Bus): boolean {
+    /** True while a bus with free seats is on the road and has not passed stop `index` yet. */
+    private isInboundToStop(bus: Bus, index: number): boolean {
         const trip = bus.currentTrip;
-        return bus.state === BusState.OnRoad && !bus.isFull && !!trip && trip.stopS >= 0 && bus.progress < trip.stopS;
+        if (bus.isFull || !trip || index >= trip.stops.length) return false;
+        // While boarding, the stop the bus stands at still counts as ahead of it.
+        if (bus.state === BusState.Boarding) return bus.nextStopIndex - 1 <= index;
+        return bus.state === BusState.OnRoad && bus.nextStopIndex <= index;
+    }
+
+    /** Colours currently at the head of a queue. */
+    private headColors(): BusColor[] {
+        return this.busStops.map((stop) => stop.peek()).filter((c): c is BusColor => c !== null);
+    }
+
+    /** Passengers still waiting over all the stops. */
+    private get passengersLeft(): number {
+        return this.busStops.reduce((sum, stop) => sum + stop.remaining, 0);
     }
 
     private tickAutoplay(dt: number): void {
@@ -591,14 +630,14 @@ export class GameManager extends Component implements BusTripListener {
         if (this.busesOnRoad() >= this.level.roadCapacity) return;
         let target: Bus | null;
         if (this.autoRandom || this.autoWrong) {
-            const head = this.busStop.peek();
-            const options = this.buses.filter((b) => this.canDispatch(b) && (!this.autoWrong || b.color !== head));
+            const heads = this.headColors();
+            const options = this.buses.filter((b) => this.canDispatch(b) && (!this.autoWrong || heads.indexOf(b.color) < 0));
             target = options.length ? options[Math.floor(Math.random() * options.length)] : null;
         } else {
             target = this.suggestBus();
         }
         if (target) {
-            console.log(`[autoplay] dispatch ${BusColor[target.color]}${target.seatCount} (${BusState[target.state]}) queue=${this.busStop.remaining} buses=${this.busesLeft}`);
+            console.log(`[autoplay] dispatch ${BusColor[target.color]}${target.seatCount} (${BusState[target.state]}) queue=${this.passengersLeft} buses=${this.busesLeft}`);
             this.hasTapped = true;
             this.dispatch(target);
         }
