@@ -2550,6 +2550,10 @@
       "__uuid__": "7d8f9b89-4fd1-4c9f-a3ab-38ec7cded7ca@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
+    "starSprite": {
+      "__uuid__": "3a07b327-6b11-48d7-8862-e939a857fecd@f9941",
+      "__expectedType__": "cc.SpriteFrame"
+    },
     "font": {
       "__uuid__": "600fc845-cde6-42a8-a675-7645280b78ad",
       "__expectedType__": "cc.TTFFont"

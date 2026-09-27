@@ -166,14 +166,31 @@ export const GameConfig = {
          * are in design pixels, life in seconds, gravity in px/s² (positive = falls).
          */
         burst: {
-            /** Bus is full: a ring of dots in the bus colour. */
-            full: { count: 14, size: 22, speed: 560, life: 0.55, gravity: 700, angle: 90, spread: 180, spin: 720 },
-            /** Puff behind a bus that starts driving. */
-            exhaust: { count: 5, size: 44, speed: 120, life: 0.5, gravity: -120, angle: 90, spread: 180 },
+            /** Tapped bus sets off: a small ring of stars in the bus colour that shoots out and settles. */
+            tap: {
+                shape: 'star' as const, count: 8, size: 34, speed: 900, drag: 7, life: 0.5, gravity: 0,
+                angle: 90, spread: 180, spin: 360, radius: 40, grow: 0.15,
+            },
+            /** Bus is full: a big star explosion that arcs down... */
+            full: {
+                shape: 'star' as const, count: 16, size: 46, speed: 1400, drag: 5, life: 0.85, gravity: 420,
+                angle: 90, spread: 180, spin: 540, radius: 60, grow: 0.12,
+            },
+            /** ...plus small stars drifting up over the bus. */
+            fullSparkle: {
+                shape: 'star' as const, count: 10, size: 24, speed: 260, life: 1.0, gravity: -150,
+                angle: 90, spread: 45, spin: 240, spawnWidth: 180, grow: 0.3,
+            },
             /** Win: rectangles raining from the top edge. */
             confetti: { count: 70, size: 26, speed: 260, life: 2.2, gravity: 520, angle: -90, spread: 70, stretch: 0.55, spin: 540, spawnWidth: 1080 },
         },
-        exhaustColor: { r: 210, g: 210, b: 210, a: 170 },
+        /** Single star behind the bursts: pops in, keeps expanding while it fades (FxLayer.flash). */
+        flash: {
+            tap: { shape: 'star' as const, size: 80, peakScale: 1, endScale: 1.25, duration: 0.32, grow: 0.35, spin: 90 },
+            full: { shape: 'star' as const, size: 110, peakScale: 1.15, endScale: 1.5, duration: 0.6, grow: 0.3, spin: 120 },
+        },
+        /** Alpha of the white flash star (0-255). */
+        flashAlpha: { tap: 130, full: 160 },
         confettiColors: [
             { r: 255, g: 90, b: 90 }, { r: 90, g: 160, b: 255 }, { r: 110, g: 220, b: 120 },
             { r: 255, g: 210, b: 60 }, { r: 190, g: 110, b: 255 }, { r: 255, g: 255, b: 255 },

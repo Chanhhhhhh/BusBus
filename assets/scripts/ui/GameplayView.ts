@@ -39,6 +39,8 @@ export class GameplayView extends BaseView {
     @property(Button) ctaButton: Button = null;
     /** Soft round sprite the runtime particle bursts are made of (fx/FxLayer.ts). */
     @property(SpriteFrame) fxSprite: SpriteFrame = null;
+    /** White star the tap / bus-full bursts are made of (tinted per particle). */
+    @property(SpriteFrame) starSprite: SpriteFrame = null;
     /** Font of the runtime labels (floating texts). */
     @property(TTFFont) font: TTFFont = null;
 

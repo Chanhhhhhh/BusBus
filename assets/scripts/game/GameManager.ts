@@ -23,10 +23,11 @@ const { ccclass, property } = _decorator;
 /** Passengers queue on the outside of the loop, i.e. on the right of the driving direction. */
 const BUS_RIGHT = new Vec3(1, 0, 0);
 const HUD_UP = new Vec3(0, GameConfig.hud.anchorHeight, 0);
-const EXHAUST = GameConfig.fx.exhaustColor;
-const EXHAUST_COLORS = [new Color(EXHAUST.r, EXHAUST.g, EXHAUST.b, EXHAUST.a)];
 const CONFETTI_COLORS = GameConfig.fx.confettiColors.map((c) => new Color(c.r, c.g, c.b, 255));
 const WHITE = Color.WHITE.clone();
+const GOLD = new Color(255, 215, 70, 255);
+const FLASH_TAP = new Color(255, 255, 255, GameConfig.fx.flashAlpha.tap);
+const FLASH_FULL = new Color(255, 255, 255, GameConfig.fx.flashAlpha.full);
 
 /**
  * Owns the level: spawns rows, routes buses over the road loop, runs boarding at the stop,
@@ -259,7 +260,7 @@ export class GameManager extends Component implements BusTripListener {
         this.loseView.hide();
 
         // Created last so particles and floating labels draw above the end cards.
-        this.fx = new FxLayer(this.canvas, this.gameplay.fxSprite, this.gameplay.font);
+        this.fx = new FxLayer(this.canvas, this.gameplay.fxSprite, this.gameplay.starSprite, this.gameplay.font);
     }
 
     // ---------------------------------------------------------------- input / dispatch
@@ -319,9 +320,15 @@ export class GameManager extends Component implements BusTripListener {
         bus.state = BusState.OnRoad;
         bus.startTrip(trip, this);
         bus.tapFeedback();
-        bus.pointAhead(-bus.length / 2, this.tmpWorld);
-        this.fx.burst(this.worldToUi(this.tmpWorld, this.fx.node, this.tmpUi), EXHAUST_COLORS, GameConfig.fx.burst.exhaust);
+        this.tapFx(bus);
         this.gameplay.showTapHint(false);
+    }
+
+    /** White star flash on the tapped bus with a ring of stars in its colour. */
+    private tapFx(bus: Bus): void {
+        const at = this.worldToUi(bus.node.worldPosition, this.fx.node, this.tmpUi);
+        this.fx.flash(at, FLASH_TAP, GameConfig.fx.flash.tap);
+        this.fx.burst(at, [uiColor(bus.color), WHITE], GameConfig.fx.burst.tap);
     }
 
     /**
@@ -399,11 +406,14 @@ export class GameManager extends Component implements BusTripListener {
         bus.resume();
     }
 
-    /** Lid drops, a burst in the bus colour, a floating label and a small screen kick. */
+    /** Lid drops, a star explosion in the bus colour, a floating label and a small screen kick. */
     private celebrateFull(bus: Bus): void {
         bus.closeLid();
         const at = this.worldToUi(bus.node.worldPosition, this.fx.node, this.tmpUi);
-        this.fx.burst(at, [uiColor(bus.color), WHITE], GameConfig.fx.burst.full);
+        const colors = [uiColor(bus.color), GOLD, WHITE];
+        this.fx.flash(at, FLASH_FULL, GameConfig.fx.flash.full);
+        this.fx.burst(at, colors, GameConfig.fx.burst.full);
+        this.fx.burst(at, colors, GameConfig.fx.burst.fullSparkle);
         this.fx.floatText(GameConfig.ui.text.busFull, at, uiColor(bus.color));
         this.shake(GameConfig.camera.shake.lid);
     }
